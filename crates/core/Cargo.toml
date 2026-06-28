@@ -1,0 +1,24 @@
+[package]
+name = "solarpv-core"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Core solar geometry, irradiance transposition and PV yield models"
+keywords = ["solar", "photovoltaic", "irradiance", "pv", "energy"]
+categories = ["science::geo"]
+
+[features]
+default = []
+serde = ["dep:serde"]
+# Reuse SurtGIS terrain/horizon rasters for the (future) gridded step.
+terrain = ["dep:surtgis-core"]
+
+[dependencies]
+thiserror.workspace = true
+serde = { workspace = true, optional = true }
+surtgis-core = { workspace = true, optional = true }
+
+[dev-dependencies]
+serde_json.workspace = true

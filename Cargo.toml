@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/core",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+authors = ["Francisco Parra"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/franciscoparrao/solarpv-rs"
+description = "Terrain-aware photovoltaic potential engine in Rust (PVGIS lite)"
+keywords = ["solar", "photovoltaic", "pvgis", "irradiance", "geospatial"]
+categories = ["science::geo"]
+
+[workspace.dependencies]
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Terrain / raster layer reused from the SurtGIS engine family.
+# Default features only (no gdal) so we don't pull system GDAL libs.
+surtgis-core = { path = "../surtgis/crates/core" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+opt-level = 3
