@@ -17,10 +17,18 @@ point in the Atacama desert (northern Chile):
 | Module | What it does | pvlib oracle |
 |--------|--------------|--------------|
 | `solpos` | Sun position (Michalsky) + angle of incidence | `solarposition.spa_python` (< 0.1° zenith) |
-| `irradiance` | Erbs decomposition, POA transposition (isotropic / Hay-Davies / Perez) | `irradiance.erbs`, `irradiance.get_total_irradiance` |
+| `irradiance` | Erbs decomposition, POA transposition (isotropic / Hay-Davies / Perez), Haurwitz clear-sky | `irradiance.erbs`, `irradiance.get_total_irradiance` |
 | `pv` | SAPM cell temperature, PVWatts DC + inverter, energy integration | `temperature.sapm_cell`, `pvsystem.pvwatts_dc`, `inverter.pvwatts` |
 
 All transposition and PV-chain quantities match pvlib to ≤ 0.2 % relative.
+
+### Gridded step (feature `terrain`)
+
+`grid::pv_potential` maps the point chain over a DEM, reusing SurtGIS
+`slope`/`aspect`/`horizon_angles`: each cell is a ground-following surface with
+beam shading from the surrounding topography. It produces per-cell POA insolation
+(Wh/m²/day), AC energy (Wh/day) and specific yield (kWh/kWp/day). Enable with
+`--features terrain`.
 
 ## Layout
 
@@ -42,10 +50,12 @@ python3 validation/generate_reference.py
 ## Roadmap
 
 - **v0.1** ✅ point PV chain validated against pvlib.
-- **v0.1 (next)** gridded step: map POA / yield over a DEM reusing SurtGIS
-  `horizon_angles` + `slope`/`aspect` (feature `terrain`); CLI.
-- **v0.2** TMY time series, tracking, detailed losses; NREL SPA for sub-arcminute
-  solar position; PV potential map of a northern-Chile zone.
+- **v0.1** ✅ gridded step over a DEM reusing SurtGIS `horizon_angles` +
+  `slope`/`aspect` (feature `terrain`).
+- **v0.1 (next)** CLI; load real DEMs (GeoTIFF) and write output rasters;
+  parallelise the per-cell loop with rayon; per-cell latitude.
+- **v0.2** TMY / measured irradiance series, tracking, detailed losses; NREL SPA
+  for sub-arcminute solar position; PV potential map of a northern-Chile zone.
 
 ## Conventions
 

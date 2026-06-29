@@ -44,6 +44,20 @@ pub fn relative_airmass(apparent_zenith_deg: f64) -> f64 {
     1.0 / ((z * DEG).cos() + 0.505_72 * (96.079_95 - z).powf(-1.636_4))
 }
 
+/// Haurwitz (1945) clear-sky global horizontal irradiance (W/m²).
+///
+/// A single-parameter clear-sky model depending only on the apparent solar
+/// zenith — useful for a self-contained "clear-sky PV potential" map when no
+/// measured or TMY irradiance series is available. Mirrors
+/// `pvlib.clearsky.haurwitz`. Returns 0 with the sun at or below the horizon.
+pub fn haurwitz_clearsky_ghi(apparent_zenith_deg: f64) -> f64 {
+    if apparent_zenith_deg >= 90.0 {
+        return 0.0;
+    }
+    let cos_z = (apparent_zenith_deg * DEG).cos();
+    (1098.0 * cos_z * (-0.059 / cos_z).exp()).max(0.0)
+}
+
 /// Global irradiance split into its direct-normal and diffuse-horizontal parts.
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

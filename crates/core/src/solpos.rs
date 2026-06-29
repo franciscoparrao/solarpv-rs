@@ -47,6 +47,14 @@ impl DateTimeUtc {
         Ok(Self { year, month, day, hour, minute, second })
     }
 
+    /// Day of year in `1..=366`.
+    pub fn day_of_year(&self) -> u32 {
+        const CUM: [u32; 12] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+        let leap = (self.year % 4 == 0 && self.year % 100 != 0) || self.year % 400 == 0;
+        let extra = if leap && self.month > 2 { 1 } else { 0 };
+        CUM[(self.month - 1) as usize] + self.day + extra
+    }
+
     /// Fractional hour of day in UTC, in `[0, 24)`.
     fn hour_fraction(&self) -> f64 {
         self.hour as f64 + self.minute as f64 / 60.0 + self.second as f64 / 3600.0

@@ -22,6 +22,10 @@ pub enum Error {
     /// A calendar date was not valid (e.g. month 13).
     #[error("invalid date: {0}")]
     InvalidDate(String),
+
+    /// A terrain/raster computation (slope, aspect, horizon) failed.
+    #[error("terrain computation failed: {0}")]
+    Terrain(String),
 }
 
 impl Error {
