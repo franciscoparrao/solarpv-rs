@@ -52,6 +52,10 @@ def build_samples():
             # Erbs decomposition from GHI (independent of the clear-sky DNI/DHI).
             erbs = pvlib.irradiance.erbs(ghi, app_zen, doy)
 
+            # Haurwitz clear-sky GHI for this zenith.
+            hz = pvlib.clearsky.haurwitz(pd.Series([app_zen]))
+            haurwitz_ghi = float(np.asarray(hz).ravel()[0])
+
             poa = {}
             for model in ("isotropic", "haydavies", "perez"):
                 r = pvlib.irradiance.get_total_irradiance(
@@ -91,6 +95,7 @@ def build_samples():
                 "ghi": ghi, "dni": dni, "dhi": dhi,
                 "dni_extra": dnie, "airmass": am,
                 "erbs_dni": float(erbs["dni"]), "erbs_dhi": float(erbs["dhi"]),
+                "haurwitz_ghi": haurwitz_ghi,
                 "poa": poa,
                 # pv chain.
                 "temp_air": temp_air, "wind": wind,
@@ -99,8 +104,59 @@ def build_samples():
     return samples
 
 
+def build_annual_point(year=2026, tilt=23.0, surf_azim=0.0,
+                       temp_air=18.0, wind=2.0, losses=0.14):
+    """Full-year HOURLY clear-sky → fixed-tilt POA → PVWatts integration at the
+    Atacama point, using exactly solarpv-core's model chain (Haurwitz GHI, Erbs,
+    Perez, SAPM cell temp, PVWatts DC with system losses, PVWatts inverter).
+
+    This is the end-to-end oracle: the Rust engine should reproduce the annual
+    POA insolation and AC energy from the same 8760-hour integration.
+    """
+    loc = pvlib.location.Location(LAT, LON, altitude=ALT)
+    times = pd.date_range(f"{year}-01-01 00:00", f"{year}-12-31 23:00",
+                          freq="1h", tz="UTC")
+    solpos = loc.get_solarposition(times)
+    app_zen = solpos["apparent_zenith"]
+    azimuth = solpos["azimuth"]
+    doy = times.dayofyear
+
+    ghi = pvlib.clearsky.haurwitz(app_zen)
+    ghi = np.asarray(ghi).ravel()
+    app_zen = app_zen.to_numpy()
+    azimuth = azimuth.to_numpy()
+
+    erbs = pvlib.irradiance.erbs(ghi, app_zen, np.asarray(doy))
+    dni = np.nan_to_num(np.asarray(erbs["dni"]))
+    dhi = np.nan_to_num(np.asarray(erbs["dhi"]))
+    dni_extra = np.asarray(pvlib.irradiance.get_extra_radiation(times, method="spencer"))
+    airmass = np.nan_to_num(np.asarray(pvlib.atmosphere.get_relative_airmass(app_zen)), nan=0.0)
+
+    poa = pvlib.irradiance.get_total_irradiance(
+        tilt, surf_azim, app_zen, azimuth, dni, ghi, dhi,
+        dni_extra=dni_extra, airmass=airmass, albedo=ALBEDO, model="perez",
+    )
+    poa_global = np.nan_to_num(np.asarray(poa["poa_global"]))
+
+    tparams = pvlib.temperature.TEMPERATURE_MODEL_PARAMETERS["sapm"][
+        "open_rack_glass_glass"]
+    tcell = pvlib.temperature.sapm_cell(poa_global, temp_air, wind, **tparams)
+    dc = pvlib.pvsystem.pvwatts_dc(poa_global, tcell, 1000.0, -0.004) * (1.0 - losses)
+    ac = np.nan_to_num(np.asarray(pvlib.inverter.pvwatts(dc, 1000.0 / 1.1)))
+
+    return {
+        "year": year, "tilt": tilt, "surface_azimuth": surf_azim,
+        "temp_air": temp_air, "wind": wind, "system_losses": losses,
+        "albedo": ALBEDO, "pdc0": 1000.0, "gamma_pdc": -0.004,
+        "annual_poa_wh": float(poa_global.sum()),   # dt = 1 h
+        "annual_ac_wh": float(ac.sum()),
+        "annual_specific_yield": float(ac.sum() / 1000.0),  # kWh/kWp
+    }
+
+
 def main():
     samples = build_samples()
+    annual_point = build_annual_point()
     out = {
         "meta": {
             "source": "pvlib " + pvlib.__version__,
@@ -109,6 +165,7 @@ def main():
             "n_samples": len(samples),
         },
         "samples": samples,
+        "annual_point": annual_point,
     }
     path = pathlib.Path(__file__).with_name("reference.json")
     path.write_text(json.dumps(out, indent=2))

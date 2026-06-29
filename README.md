@@ -21,6 +21,10 @@ point in the Atacama desert (northern Chile):
 | `pv` | SAPM cell temperature, PVWatts DC + inverter, energy integration | `temperature.sapm_cell`, `pvsystem.pvwatts_dc`, `inverter.pvwatts` |
 
 All transposition and PV-chain quantities match pvlib to ≤ 0.2 % relative.
+Beyond the per-component checks, an **end-to-end** test reproduces pvlib's full
+8760-hour clear-sky → fixed-tilt POA → PVWatts annual integration at the Atacama
+point (2054 kWh/kWp·yr) to within **0.5 %** — the only residual being Michalsky
+vs NREL SPA solar position.
 
 ### Gridded step (feature `terrain`)
 
@@ -77,10 +81,12 @@ python3 validation/generate_reference.py
   geographic DEMs): solar ephemeris precomputed per step, sky position per cell.
 - **v0.1** ✅ annual integration (`--annual`): terrain computed once, year
   sampled by monthly representative days or an N-day stride.
-- **v0.1 (next)** GDAL feature for broader format support; validation against
-  PVGIS on a real northern-Chile DEM.
-- **v0.2** TMY / measured irradiance series, tracking, detailed losses; NREL SPA
-  for sub-arcminute solar position; PV potential map of a northern-Chile zone.
+- **v0.1** ✅ end-to-end annual validation vs pvlib (Atacama point, < 0.5 %);
+  demonstrated on a real 637×570 Chilean DEM (UTM 19S, ~−32.9°): yield 325–2018
+  kWh/kWp·yr, with North-facing slopes (1854) > flat (1726) > South-facing (1509).
+- **v0.2** measured / TMY irradiance series, tracking, detailed losses; NREL SPA
+  for sub-arcminute solar position; GDAL feature; cross-check against PVGIS when
+  network is available.
 
 ## Conventions
 

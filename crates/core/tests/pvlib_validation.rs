@@ -10,8 +10,11 @@
 
 use serde_json::Value;
 use solarpv_core::{
-    irradiance::{erbs, poa_irradiance, relative_airmass, Decomposition, SkyModel},
-    pv::{pvwatts_ac, pvwatts_dc, sapm_cell_temperature, TempModel, ETA_INV_NOM, ETA_INV_REF},
+    irradiance::{
+        erbs, extra_radiation, haurwitz_clearsky_ghi, poa_irradiance, relative_airmass,
+        Decomposition, SkyModel,
+    },
+    pv::{ac_power, pvwatts_ac, pvwatts_dc, sapm_cell_temperature, PvSystem, TempModel, ETA_INV_NOM, ETA_INV_REF},
     solpos::{solar_position, DateTimeUtc, Location},
 };
 
@@ -143,6 +146,58 @@ fn pv_chain_matches_pvlib() {
         let ac = pvwatts_ac(dc, 1000.0 / 1.1, ETA_INV_NOM, ETA_INV_REF);
         assert_close(ac, f(s, "ac"), 1e-3, 1e-4, "ac");
     }
+}
+
+#[test]
+fn haurwitz_matches_pvlib() {
+    let data = load();
+    for s in data["samples"].as_array().unwrap() {
+        let got = haurwitz_clearsky_ghi(f(s, "pv_apparent_zenith"));
+        assert_close(got, f(s, "haurwitz_ghi"), 0.5, 1e-3, "haurwitz ghi");
+    }
+}
+
+/// End-to-end: reproduce pvlib's full-year hourly clear-sky → fixed-tilt POA →
+/// PVWatts integration at the Atacama point and match the annual totals. This
+/// exercises the entire model chain composed together, not just the parts.
+#[test]
+fn annual_point_chain_matches_pvlib() {
+    let data = load();
+    let ap = &data["annual_point"];
+    let year = ap["year"].as_i64().unwrap() as i32;
+    let tilt = f(ap, "tilt");
+    let surf_az = f(ap, "surface_azimuth");
+    let albedo = f(ap, "albedo");
+    let temp_air = f(ap, "temp_air");
+    let wind = f(ap, "wind");
+    let loc = Location::new(-23.0, -69.0).unwrap();
+    let system = PvSystem::reference_1kw(); // pdc0 1000, γ -0.004, DC/AC 1.1, 14% loss, open-rack
+
+    let mut poa_year = 0.0;
+    let mut ac_year = 0.0;
+    for doy in 1..=365u32 {
+        let day = DateTimeUtc::from_ordinal(year, doy).unwrap();
+        for hour in 0..24u32 {
+            let when = DateTimeUtc::new(year, day.month, day.day, hour, 0, 0).unwrap();
+            let sun = solar_position(when, loc);
+            if sun.apparent_elevation <= 0.0 {
+                continue;
+            }
+            let z = sun.apparent_zenith;
+            let ghi = haurwitz_clearsky_ghi(z);
+            let decomp = erbs(ghi, z, doy);
+            let poa = poa_irradiance(
+                SkyModel::Perez, tilt, surf_az, decomp, z, sun.azimuth, albedo,
+                extra_radiation(doy), relative_airmass(z),
+            );
+            poa_year += poa.global; // dt = 1 h → Wh/m²
+            ac_year += ac_power(&system, poa.global, temp_air, wind);
+        }
+    }
+
+    // Only residual difference vs pvlib is Michalsky vs NREL SPA solar position.
+    assert_close(poa_year, f(ap, "annual_poa_wh"), 0.0, 0.005, "annual POA Wh/m²");
+    assert_close(ac_year, f(ap, "annual_ac_wh"), 0.0, 0.005, "annual AC Wh");
 }
 
 #[test]
