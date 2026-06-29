@@ -16,7 +16,8 @@
 
 use rayon::prelude::*;
 use surtgis_algorithms::terrain::{
-    aspect, horizon_angles, slope, AspectOutput, HorizonParams, SlopeParams, SlopeUnits,
+    aspect, horizon_angles, slope, AspectOutput, HorizonAngles, HorizonParams, SlopeParams,
+    SlopeUnits,
 };
 use surtgis_core::Raster;
 
@@ -111,25 +112,64 @@ pub struct GridResult {
     pub sun_steps: usize,
 }
 
-/// Compute the daily clear-sky PV potential over a DEM.
-///
-/// Returns per-cell POA insolation, AC energy and specific yield. Reuses SurtGIS
-/// `slope`/`aspect`/`horizon_angles`; the per-cell physics is the same validated
-/// point chain used elsewhere in the crate.
-pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
-    let (rows, cols) = dem.shape();
+/// Precomputed terrain layers (slope, aspect, skyline), independent of the day —
+/// computed once and reused across every day of an annual run.
+struct Terrain {
+    slope_rad: Raster<f64>,
+    asp_deg: Raster<f64>,
+    horizon: HorizonAngles,
+}
 
-    // Terrain orientation and skyline from SurtGIS.
+fn build_terrain(dem: &Raster<f64>, horizon_params: &HorizonParams) -> Result<Terrain> {
     let slope_rad = slope(dem, SlopeParams { units: SlopeUnits::Radians, ..Default::default() })
         .map_err(|e| Error::Terrain(format!("slope: {e}")))?;
     let asp_deg = aspect(dem, AspectOutput::Degrees)
         .map_err(|e| Error::Terrain(format!("aspect: {e}")))?;
-    let horizon = horizon_angles(dem, cfg.horizon.clone())
+    let horizon = horizon_angles(dem, horizon_params.clone())
         .map_err(|e| Error::Terrain(format!("horizon_angles: {e}")))?;
+    Ok(Terrain { slope_rad, asp_deg, horizon })
+}
+
+/// Build the output rasters (POA, AC and specific yield) from flattened energy
+/// vectors, copying the DEM's georeferencing.
+fn build_result(
+    dem: &Raster<f64>,
+    cfg: &GridConfig,
+    poa_vec: Vec<f64>,
+    ac_vec: Vec<f64>,
+    sun_steps: usize,
+) -> GridResult {
+    let (rows, cols) = dem.shape();
+    let sy_vec: Vec<f64> = ac_vec.iter().map(|&ac| ac / cfg.system.pdc0).collect();
+    let to_raster = |v: Vec<f64>| -> Raster<f64> {
+        let mut out = Raster::from_vec(v, rows, cols).expect("dimensions match dem");
+        out.set_transform(*dem.transform());
+        out
+    };
+    GridResult {
+        poa_wh: to_raster(poa_vec),
+        ac_wh: to_raster(ac_vec),
+        specific_yield: to_raster(sy_vec),
+        sun_steps,
+    }
+}
+
+/// Per-cell `(POA Wh, AC Wh)` energy for a single `date`, plus the number of
+/// daylight steps at the scene centre. Terrain is supplied precomputed.
+fn day_energies(
+    dem: &Raster<f64>,
+    cfg: &GridConfig,
+    terrain: &Terrain,
+    date: DateTimeUtc,
+) -> Result<(Vec<(f64, f64)>, usize)> {
+    let (rows, cols) = dem.shape();
+    let slope_rad = &terrain.slope_rad;
+    let asp_deg = &terrain.asp_deg;
+    let horizon = &terrain.horizon;
 
     let dt_hours = cfg.time_step_minutes as f64 / 60.0;
     let steps = (24 * 60) / cfg.time_step_minutes.max(1);
-    let doy = cfg.date.day_of_year();
+    let doy = date.day_of_year();
     let dni_extra = extra_radiation(doy);
 
     // Precompute, for every step, the time-only ephemeris (shared by all cells)
@@ -139,9 +179,9 @@ pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
     for i in 0..steps {
         let total_min = i * cfg.time_step_minutes;
         let when = DateTimeUtc::new(
-            cfg.date.year,
-            cfg.date.month,
-            cfg.date.day,
+            date.year,
+            date.month,
+            date.day,
             total_min / 60,
             total_min % 60,
             0,
@@ -243,21 +283,88 @@ pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
         })
         .collect();
 
-    let poa_vec: Vec<f64> = energies.iter().map(|e| e.0).collect();
-    let ac_vec: Vec<f64> = energies.iter().map(|e| e.1).collect();
-    // Specific yield = AC energy (Wh) / nameplate (W) = kWh/kWp.
-    let sy_vec: Vec<f64> = ac_vec.iter().map(|&ac| ac / cfg.system.pdc0).collect();
+    Ok((energies, sun_steps))
+}
 
-    let to_raster = |v: Vec<f64>| -> Raster<f64> {
-        let mut out = Raster::from_vec(v, rows, cols).expect("dimensions match dem");
-        out.set_transform(*dem.transform());
-        out
-    };
+/// Compute the daily clear-sky PV potential over a DEM.
+///
+/// Returns per-cell POA insolation (Wh/m²/day), AC energy (Wh/day) and specific
+/// yield (kWh/kWp/day). Reuses SurtGIS `slope`/`aspect`/`horizon_angles`; the
+/// per-cell physics is the same validated point chain used elsewhere.
+pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
+    let terrain = build_terrain(dem, &cfg.horizon)?;
+    let (energies, sun_steps) = day_energies(dem, cfg, &terrain, cfg.date)?;
+    let poa_vec = energies.iter().map(|e| e.0).collect();
+    let ac_vec = energies.iter().map(|e| e.1).collect();
+    Ok(build_result(dem, cfg, poa_vec, ac_vec, sun_steps))
+}
 
-    Ok(GridResult {
-        poa_wh: to_raster(poa_vec),
-        ac_wh: to_raster(ac_vec),
-        specific_yield: to_raster(sy_vec),
-        sun_steps,
-    })
+/// How the year is sampled when integrating annual PV potential.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DaySampling {
+    /// Evaluate every `n`-th day of the year; each sampled day represents `n`
+    /// days (the tail is clamped so the weights sum to the year length).
+    EveryNDays(u32),
+    /// One representative day per month (Duffie & Beckman recommended average
+    /// days), each weighted by the number of days in its month. Only 12 daily
+    /// evaluations — fast and standard for annual estimates.
+    MonthlyRepresentative,
+}
+
+/// The (date, weight-in-days) pairs to integrate for a year, per [`DaySampling`].
+fn sampled_days(year: i32, sampling: DaySampling) -> Result<Vec<(DateTimeUtc, f64)>> {
+    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let year_len = if leap { 366 } else { 365 };
+    match sampling {
+        DaySampling::EveryNDays(n) => {
+            let n = n.max(1);
+            let mut out = Vec::new();
+            let mut doy = 1;
+            while doy <= year_len {
+                let weight = n.min(year_len - doy + 1) as f64;
+                out.push((DateTimeUtc::from_ordinal(year, doy)?, weight));
+                doy += n;
+            }
+            Ok(out)
+        }
+        DaySampling::MonthlyRepresentative => {
+            // Duffie & Beckman average day-of-month, (month, day).
+            const REP: [(u32, u32); 12] = [
+                (1, 17), (2, 16), (3, 16), (4, 15), (5, 15), (6, 11),
+                (7, 17), (8, 16), (9, 15), (10, 15), (11, 14), (12, 10),
+            ];
+            let mdays = [31u32, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+            REP.iter()
+                .enumerate()
+                .map(|(i, &(m, d))| Ok((DateTimeUtc::new(year, m, d, 0, 0, 0)?, mdays[i] as f64)))
+                .collect()
+        }
+    }
+}
+
+/// Compute the annual clear-sky PV potential over a DEM.
+///
+/// Terrain (slope/aspect/horizon) is computed once and reused across the sampled
+/// days. Output rasters carry **annual** totals: POA insolation (Wh/m²/year), AC
+/// energy (Wh/year) and specific yield (kWh/kWp/year). `sun_steps` reports the
+/// number of representative days integrated.
+pub fn pv_potential_annual(
+    dem: &Raster<f64>,
+    cfg: &GridConfig,
+    sampling: DaySampling,
+) -> Result<GridResult> {
+    let (rows, cols) = dem.shape();
+    let terrain = build_terrain(dem, &cfg.horizon)?;
+    let days = sampled_days(cfg.date.year, sampling)?;
+
+    let mut poa_tot = vec![0.0f64; rows * cols];
+    let mut ac_tot = vec![0.0f64; rows * cols];
+    for (date, weight) in &days {
+        let (energies, _) = day_energies(dem, cfg, &terrain, *date)?;
+        for (i, (p, a)) in energies.iter().enumerate() {
+            poa_tot[i] += p * weight;
+            ac_tot[i] += a * weight;
+        }
+    }
+    Ok(build_result(dem, cfg, poa_tot, ac_tot, days.len()))
 }

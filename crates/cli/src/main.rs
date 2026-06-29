@@ -6,7 +6,9 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
 
-use solarpv_core::grid::{pv_potential, GridConfig, LatitudeMode};
+use solarpv_core::grid::{
+    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode,
+};
 use solarpv_core::irradiance::SkyModel;
 use solarpv_core::pv::PvSystem;
 use solarpv_core::solpos::{DateTimeUtc, Location};
@@ -95,6 +97,16 @@ struct Cli {
     /// geographic lon/lat DEM, e.g. EPSG:4326). Default: scene-centre only.
     #[arg(long, default_value_t = false)]
     per_cell_lat: bool,
+
+    /// Integrate over the whole year (the date's year is used; outputs become
+    /// annual totals). Without this, a single day is evaluated.
+    #[arg(long, default_value_t = false)]
+    annual: bool,
+
+    /// Annual day sampling stride: 0 = one representative day per month;
+    /// N > 0 = every N-th day of the year. Only used with `--annual`.
+    #[arg(long, default_value_t = 0)]
+    day_stride: u32,
 }
 
 /// Parse `YYYY-MM-DD` into a midnight-UTC datetime.
@@ -140,15 +152,32 @@ fn main() -> Result<()> {
         LatitudeMode::Center
     };
 
-    eprintln!("Computing PV potential for {} ({} sky model)…", cli.date, format!("{:?}", cli.sky));
-    let res = pv_potential(&dem, &cfg).map_err(|e| anyhow::anyhow!(e))?;
-    eprintln!("Integrated {} daylight steps.", res.sun_steps);
+    let (res, unit) = if cli.annual {
+        let sampling = if cli.day_stride == 0 {
+            DaySampling::MonthlyRepresentative
+        } else {
+            DaySampling::EveryNDays(cli.day_stride)
+        };
+        eprintln!(
+            "Computing ANNUAL PV potential for {} ({:?} sky, {:?})…",
+            cfg.date.year, cli.sky, sampling
+        );
+        let r = pv_potential_annual(&dem, &cfg, sampling).map_err(|e| anyhow::anyhow!(e))?;
+        eprintln!("Integrated {} representative days.", r.sun_steps);
+        (r, "year")
+    } else {
+        eprintln!("Computing PV potential for {} ({:?} sky model)…", cli.date, cli.sky);
+        let r = pv_potential(&dem, &cfg).map_err(|e| anyhow::anyhow!(e))?;
+        eprintln!("Integrated {} daylight steps.", r.sun_steps);
+        (r, "day")
+    };
 
-    let outputs = [
-        ("poa", &res.poa_wh, "POA insolation (Wh/m²/day)"),
-        ("ac", &res.ac_wh, "AC energy (Wh/day)"),
-        ("specific_yield", &res.specific_yield, "specific yield (kWh/kWp/day)"),
+    let labels = [
+        ("poa", &res.poa_wh, format!("POA insolation (Wh/m²/{unit})")),
+        ("ac", &res.ac_wh, format!("AC energy (Wh/{unit})")),
+        ("specific_yield", &res.specific_yield, format!("specific yield (kWh/kWp/{unit})")),
     ];
+    let outputs: Vec<_> = labels.iter().map(|(s, r, l)| (*s, *r, l.as_str())).collect();
     for (suffix, raster, label) in outputs {
         let path = format!("{}_{}.tif", cli.out_prefix, suffix);
         write_geotiff(raster, &path, None)

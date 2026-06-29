@@ -6,7 +6,9 @@
 //!     facing) slope must out-yield the symmetric South-facing slope.
 #![cfg(feature = "terrain")]
 
-use solarpv_core::grid::{pv_potential, GridConfig, LatitudeMode};
+use solarpv_core::grid::{
+    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode,
+};
 use solarpv_core::solpos::{DateTimeUtc, Location};
 use surtgis_core::{GeoTransform, Raster};
 
@@ -123,6 +125,41 @@ fn per_cell_latitude_varies_yield_across_a_wide_span() {
     let n_c = res_c.poa_wh.get(0, col).unwrap();
     let s_c = res_c.poa_wh.get(rows - 1, col).unwrap();
     assert!((n_c - s_c).abs() < 1.0, "center mode should be uniform: {n_c} vs {s_c}");
+}
+
+#[test]
+fn annual_integration_is_plausible_and_sampling_agnostic() {
+    let dem = flat_dem(5);
+    let center = Location::new(-23.0, -69.0).unwrap();
+    // Year is what matters for annual; start date day/month are ignored.
+    let date = DateTimeUtc::new(2026, 1, 1, 0, 0, 0).unwrap();
+    let mut cfg = GridConfig::new(center, date);
+    cfg.time_step_minutes = 30;
+
+    let monthly = pv_potential_annual(&dem, &cfg, DaySampling::MonthlyRepresentative).unwrap();
+    let weekly = pv_potential_annual(&dem, &cfg, DaySampling::EveryNDays(7)).unwrap();
+
+    assert_eq!(monthly.sun_steps, 12, "12 representative days");
+
+    let sy_m = monthly.specific_yield.get(2, 2).unwrap();
+    let sy_w = weekly.specific_yield.get(2, 2).unwrap();
+
+    // Annual clear-sky specific yield for the Atacama: well over 1000 kWh/kWp,
+    // below the physical ceiling.
+    assert!((1200.0..=3200.0).contains(&sy_m), "annual specific yield {sy_m} kWh/kWp");
+    // The two sampling schemes should agree closely.
+    let rel = (sy_m - sy_w).abs() / sy_m;
+    assert!(rel < 0.05, "monthly {sy_m} vs weekly {sy_w} differ {:.1}%", rel * 100.0);
+
+    // A single summer day must be a small fraction of the annual total.
+    let day = pv_potential(&dem, &{
+        let mut c = cfg.clone();
+        c.date = DateTimeUtc::new(2026, 12, 21, 0, 0, 0).unwrap();
+        c
+    })
+    .unwrap();
+    let sy_day = day.specific_yield.get(2, 2).unwrap();
+    assert!(sy_m > sy_day * 50.0, "annual {sy_m} vs single day {sy_day}");
 }
 
 #[test]

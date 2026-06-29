@@ -47,6 +47,11 @@ cargo run --release -p solarpv-cli -- \
   --out-prefix out/atacama --step 15 --sky perez
 
 # writes out/atacama_{poa,ac,specific_yield}.tif (GeoTIFF, georeferenced)
+
+# annual potential (one representative day per month), per-cell latitude:
+cargo run --release -p solarpv-cli -- \
+  --dem dem.tif --lat -23.0 --lon -69.0 --date 2026-01-01 \
+  --out-prefix out/atacama_year --annual --per-cell-lat
 ```
 
 Reads a single-band elevation GeoTIFF (native reader, no GDAL needed) and writes
@@ -70,8 +75,10 @@ python3 validation/generate_reference.py
 - **v0.1** ✅ CLI: read DEM GeoTIFF → write POA / AC / specific-yield rasters.
 - **v0.1** ✅ per-cell latitude/longitude for large scenes (`--per-cell-lat`,
   geographic DEMs): solar ephemeris precomputed per step, sky position per cell.
-- **v0.1 (next)** annual integration (multi-day); GDAL feature for broader
-  format support.
+- **v0.1** ✅ annual integration (`--annual`): terrain computed once, year
+  sampled by monthly representative days or an N-day stride.
+- **v0.1 (next)** GDAL feature for broader format support; validation against
+  PVGIS on a real northern-Chile DEM.
 - **v0.2** TMY / measured irradiance series, tracking, detailed losses; NREL SPA
   for sub-arcminute solar position; PV potential map of a northern-Chile zone.
 

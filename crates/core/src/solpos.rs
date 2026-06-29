@@ -47,6 +47,25 @@ impl DateTimeUtc {
         Ok(Self { year, month, day, hour, minute, second })
     }
 
+    /// Build a midnight-UTC datetime from a year and an ordinal day
+    /// (`1..=365`, or `366` in leap years).
+    pub fn from_ordinal(year: i32, ordinal: u32) -> Result<Self> {
+        let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+        let mdays = [31u32, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let max = if leap { 366 } else { 365 };
+        if !(1..=max).contains(&ordinal) {
+            return Err(Error::InvalidDate(format!("ordinal {ordinal} out of range for {year}")));
+        }
+        let mut rem = ordinal;
+        for (i, &dm) in mdays.iter().enumerate() {
+            if rem <= dm {
+                return DateTimeUtc::new(year, i as u32 + 1, rem, 0, 0, 0);
+            }
+            rem -= dm;
+        }
+        unreachable!("ordinal validated against max days")
+    }
+
     /// Day of year in `1..=366`.
     pub fn day_of_year(&self) -> u32 {
         const CUM: [u32; 12] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
