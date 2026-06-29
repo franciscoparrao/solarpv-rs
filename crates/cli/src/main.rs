@@ -6,7 +6,7 @@
 use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
 
-use solarpv_core::grid::{pv_potential, GridConfig};
+use solarpv_core::grid::{pv_potential, GridConfig, LatitudeMode};
 use solarpv_core::irradiance::SkyModel;
 use solarpv_core::pv::PvSystem;
 use solarpv_core::solpos::{DateTimeUtc, Location};
@@ -90,6 +90,11 @@ struct Cli {
     /// Number of horizon azimuth directions.
     #[arg(long, default_value_t = 36)]
     horizon_dirs: usize,
+
+    /// Use per-cell latitude/longitude from the DEM transform (requires a
+    /// geographic lon/lat DEM, e.g. EPSG:4326). Default: scene-centre only.
+    #[arg(long, default_value_t = false)]
+    per_cell_lat: bool,
 }
 
 /// Parse `YYYY-MM-DD` into a midnight-UTC datetime.
@@ -129,6 +134,11 @@ fn main() -> Result<()> {
     cfg.wind = cli.wind;
     cfg.horizon.radius = cli.horizon_radius;
     cfg.horizon.directions = cli.horizon_dirs;
+    cfg.latitude_mode = if cli.per_cell_lat {
+        LatitudeMode::PerCellGeographic
+    } else {
+        LatitudeMode::Center
+    };
 
     eprintln!("Computing PV potential for {} ({} sky model)…", cli.date, format!("{:?}", cli.sky));
     let res = pv_potential(&dem, &cfg).map_err(|e| anyhow::anyhow!(e))?;

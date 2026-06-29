@@ -68,8 +68,10 @@ python3 validation/generate_reference.py
 - **v0.1** ✅ gridded step over a DEM reusing SurtGIS `horizon_angles` +
   `slope`/`aspect` (feature `terrain`), parallelised with rayon.
 - **v0.1** ✅ CLI: read DEM GeoTIFF → write POA / AC / specific-yield rasters.
-- **v0.1 (next)** per-cell latitude for large scenes; annual integration
-  (multi-day); GDAL feature for broader format support.
+- **v0.1** ✅ per-cell latitude/longitude for large scenes (`--per-cell-lat`,
+  geographic DEMs): solar ephemeris precomputed per step, sky position per cell.
+- **v0.1 (next)** annual integration (multi-day); GDAL feature for broader
+  format support.
 - **v0.2** TMY / measured irradiance series, tracking, detailed losses; NREL SPA
   for sub-arcminute solar position; PV potential map of a northern-Chile zone.
 

@@ -6,7 +6,7 @@
 //!     facing) slope must out-yield the symmetric South-facing slope.
 #![cfg(feature = "terrain")]
 
-use solarpv_core::grid::{pv_potential, GridConfig};
+use solarpv_core::grid::{pv_potential, GridConfig, LatitudeMode};
 use solarpv_core::solpos::{DateTimeUtc, Location};
 use surtgis_core::{GeoTransform, Raster};
 
@@ -87,6 +87,42 @@ fn north_facing_slope_outyields_south_facing_in_southern_hemisphere() {
         north > south * 1.05,
         "north-facing POA {north} should clearly exceed south-facing {south}"
     );
+}
+
+/// A flat geographic DEM spanning many degrees of latitude (north at row 0).
+fn flat_geographic_lat_span(rows: usize, cols: usize, lat_n: f64, lat_s: f64) -> Raster<f64> {
+    let mut r = Raster::from_vec(vec![100.0; rows * cols], rows, cols).unwrap();
+    let pix_h = (lat_s - lat_n) / (rows as f64 - 1.0); // negative (lat decreases southward)
+    r.set_transform(GeoTransform::new(-69.0, lat_n, 0.01, pix_h));
+    r
+}
+
+#[test]
+fn per_cell_latitude_varies_yield_across_a_wide_span() {
+    // Flat plane from lat -10 (row 0) to lat -40 (last row), winter solstice.
+    let (rows, cols) = (31, 5);
+    let dem = flat_geographic_lat_span(rows, cols, -10.0, -40.0);
+    let center = Location::new(-25.0, -69.0).unwrap();
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+
+    let mut per_cell = GridConfig::new(center, date);
+    per_cell.time_step_minutes = 30;
+    per_cell.latitude_mode = LatitudeMode::PerCellGeographic;
+    let res = pv_potential(&dem, &per_cell).unwrap();
+
+    let col = cols / 2;
+    let north = res.poa_wh.get(0, col).unwrap(); // lat -10, near equator
+    let south = res.poa_wh.get(rows - 1, col).unwrap(); // lat -40
+    // In Southern-Hemisphere winter the equatorward cell receives clearly more.
+    assert!(north > south * 1.2, "equatorward {north} vs poleward {south}");
+
+    // Center mode ignores the span: rows are ~uniform.
+    let mut center_mode = per_cell.clone();
+    center_mode.latitude_mode = LatitudeMode::Center;
+    let res_c = pv_potential(&dem, &center_mode).unwrap();
+    let n_c = res_c.poa_wh.get(0, col).unwrap();
+    let s_c = res_c.poa_wh.get(rows - 1, col).unwrap();
+    assert!((n_c - s_c).abs() < 1.0, "center mode should be uniform: {n_c} vs {s_c}");
 }
 
 #[test]

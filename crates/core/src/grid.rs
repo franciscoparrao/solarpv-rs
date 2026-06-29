@@ -26,9 +26,22 @@ use crate::irradiance::{
     SkyModel,
 };
 use crate::pv::{ac_power, PvSystem};
-use crate::solpos::{solar_position, DateTimeUtc, Location};
+use crate::solpos::{solar_ephemeris, solar_position, solar_position_at, DateTimeUtc, Location};
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
+
+/// How the latitude/longitude used for solar geometry is chosen across the grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LatitudeMode {
+    /// One scene-centre location for the whole grid (the small-DEM
+    /// approximation). Fastest; correct for scenes spanning a fraction of a
+    /// degree.
+    Center,
+    /// Per-cell latitude/longitude read from the DEM's geographic transform
+    /// (requires a lon/lat DEM, e.g. EPSG:4326). Use for scenes large enough
+    /// that latitude varies meaningfully across the grid.
+    PerCellGeographic,
+}
 
 /// Configuration for a gridded PV-potential run over a single day.
 #[derive(Debug, Clone)]
@@ -51,6 +64,8 @@ pub struct GridConfig {
     pub wind: f64,
     /// Horizon-angle parameters (search radius in cells, number of directions).
     pub horizon: HorizonParams,
+    /// How latitude/longitude is chosen per cell for solar geometry.
+    pub latitude_mode: LatitudeMode,
 }
 
 impl GridConfig {
@@ -67,6 +82,7 @@ impl GridConfig {
             temp_air: 18.0,
             wind: 2.0,
             horizon: HorizonParams::default(),
+            latitude_mode: LatitudeMode::Center,
         }
     }
 }
@@ -116,8 +132,9 @@ pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
     let doy = cfg.date.day_of_year();
     let dni_extra = extra_radiation(doy);
 
-    // Precompute the solar state at the scene centre for every daylight step,
-    // so the per-cell loop never recomputes geometry or decomposition.
+    // Precompute, for every step, the time-only ephemeris (shared by all cells)
+    // and the scene-centre solar state for the fast Center path.
+    let mut ephemerides: Vec<crate::solpos::SolarEphemeris> = Vec::with_capacity(steps as usize);
     let mut sun_steps_vec: Vec<SunStep> = Vec::new();
     for i in 0..steps {
         let total_min = i * cfg.time_step_minutes;
@@ -129,21 +146,51 @@ pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
             total_min % 60,
             0,
         )?;
+        let eph = solar_ephemeris(when);
         let sun = solar_position(when, cfg.center);
-        if sun.apparent_elevation <= 0.0 {
-            continue; // night
+        if sun.apparent_elevation > 0.0 {
+            let ghi = haurwitz_clearsky_ghi(sun.apparent_zenith);
+            sun_steps_vec.push(SunStep {
+                zenith: sun.apparent_zenith,
+                azimuth: sun.azimuth,
+                elev_rad: sun.apparent_elevation * DEG,
+                az_rad: sun.azimuth * DEG,
+                airmass: relative_airmass(sun.apparent_zenith),
+                base: erbs(ghi, sun.apparent_zenith, doy),
+            });
         }
-        let ghi = haurwitz_clearsky_ghi(sun.apparent_zenith);
-        sun_steps_vec.push(SunStep {
-            zenith: sun.apparent_zenith,
-            azimuth: sun.azimuth,
-            elev_rad: sun.apparent_elevation * DEG,
-            az_rad: sun.azimuth * DEG,
-            airmass: relative_airmass(sun.apparent_zenith),
-            base: erbs(ghi, sun.apparent_zenith, doy),
-        });
+        ephemerides.push(eph);
     }
     let sun_steps = sun_steps_vec.len();
+
+    // Shading + POA + PV for one cell at one solar state. Returns the (POA, AC)
+    // energy increments for the step.
+    let cell_step = |r: usize, c: usize, tilt: f64, surface_azimuth: f64, s: &SunStep| {
+        // Beam shading: cell is in cast shadow when the sun sits below the
+        // terrain horizon at its azimuth.
+        let h = horizon.interpolate(r, c, s.az_rad);
+        let decomp = if s.elev_rad < h {
+            Decomposition { ghi: s.base.dhi, dni: 0.0, dhi: s.base.dhi }
+        } else {
+            s.base
+        };
+        let poa = poa_irradiance(
+            cfg.sky_model,
+            tilt,
+            surface_azimuth,
+            decomp,
+            s.zenith,
+            s.azimuth,
+            cfg.albedo,
+            dni_extra,
+            s.airmass,
+        );
+        let e_poa = poa.global * dt_hours;
+        let e_ac = ac_power(&cfg.system, poa.global, cfg.temp_air, cfg.wind) * dt_hours;
+        (e_poa, e_ac)
+    };
+
+    let transform = *dem.transform();
 
     // Per-cell accumulation, parallelised over the flattened grid. Each cell is
     // independent; slope/aspect/horizon are read-only and Sync.
@@ -160,28 +207,37 @@ pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
 
             let mut poa_acc = 0.0;
             let mut ac_acc = 0.0;
-            for s in &sun_steps_vec {
-                // Beam shading: cell is in cast shadow when the sun sits below
-                // the terrain horizon at its azimuth.
-                let h = horizon.interpolate(r, c, s.az_rad);
-                let decomp = if s.elev_rad < h {
-                    Decomposition { ghi: s.base.dhi, dni: 0.0, dhi: s.base.dhi }
-                } else {
-                    s.base
-                };
-                let poa = poa_irradiance(
-                    cfg.sky_model,
-                    tilt,
-                    surface_azimuth,
-                    decomp,
-                    s.zenith,
-                    s.azimuth,
-                    cfg.albedo,
-                    dni_extra,
-                    s.airmass,
-                );
-                poa_acc += poa.global * dt_hours;
-                ac_acc += ac_power(&cfg.system, poa.global, cfg.temp_air, cfg.wind) * dt_hours;
+            match cfg.latitude_mode {
+                LatitudeMode::Center => {
+                    for s in &sun_steps_vec {
+                        let (ep, ea) = cell_step(r, c, tilt, surface_azimuth, s);
+                        poa_acc += ep;
+                        ac_acc += ea;
+                    }
+                }
+                LatitudeMode::PerCellGeographic => {
+                    // (x, y) = (lon, lat) from the geographic transform.
+                    let (lon, lat) = transform.pixel_to_geo(c, r);
+                    let loc = Location { latitude: lat, longitude: lon };
+                    for eph in &ephemerides {
+                        let sun = solar_position_at(eph, loc);
+                        if sun.apparent_elevation <= 0.0 {
+                            continue;
+                        }
+                        let ghi = haurwitz_clearsky_ghi(sun.apparent_zenith);
+                        let s = SunStep {
+                            zenith: sun.apparent_zenith,
+                            azimuth: sun.azimuth,
+                            elev_rad: sun.apparent_elevation * DEG,
+                            az_rad: sun.azimuth * DEG,
+                            airmass: relative_airmass(sun.apparent_zenith),
+                            base: erbs(ghi, sun.apparent_zenith, doy),
+                        };
+                        let (ep, ea) = cell_step(r, c, tilt, surface_azimuth, &s);
+                        poa_acc += ep;
+                        ac_acc += ea;
+                    }
+                }
             }
             (poa_acc, ac_acc)
         })

@@ -151,8 +151,36 @@ fn refraction_correction(elev_deg: f64) -> f64 {
     arcsec / 3600.0
 }
 
-/// Compute the solar position for a UTC instant at a location.
-pub fn solar_position(when: DateTimeUtc, loc: Location) -> SolarPosition {
+/// The location-independent part of the solar position for a UTC instant.
+///
+/// Depends only on time (declination, right ascension, sidereal time), so it can
+/// be computed once and reused across every cell of a scene via
+/// [`solar_position_at`]. Cheap to combine with a latitude/longitude.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SolarEphemeris {
+    /// Solar declination in radians.
+    declination: f64,
+    /// Right ascension in radians.
+    right_ascension: f64,
+    /// Greenwich mean sidereal time expressed in degrees (`gmst_hours × 15`).
+    gmst_deg: f64,
+    /// Equation of time in minutes (apparent − mean solar time).
+    equation_of_time: f64,
+}
+
+impl SolarEphemeris {
+    /// Equation of time in minutes.
+    pub fn equation_of_time(&self) -> f64 {
+        self.equation_of_time
+    }
+    /// Solar declination in degrees.
+    pub fn declination(&self) -> f64 {
+        self.declination * RAD
+    }
+}
+
+/// Compute the location-independent solar ephemeris for a UTC instant.
+pub fn solar_ephemeris(when: DateTimeUtc) -> SolarEphemeris {
     let jd = when.julian_day();
     // Days since the J2000.0 epoch.
     let n = jd - 2_451_545.0;
@@ -167,15 +195,36 @@ pub fn solar_position(when: DateTimeUtc, loc: Location) -> SolarPosition {
     let obliquity = (23.439 - 0.000_000_4 * n) * DEG;
 
     // Right ascension and declination.
-    let right_asc = (obliquity.cos() * ecl_long.sin()).atan2(ecl_long.cos());
+    let right_ascension = (obliquity.cos() * ecl_long.sin()).atan2(ecl_long.cos());
     let declination = (obliquity.sin() * ecl_long.sin()).asin();
 
-    // Greenwich mean sidereal time (hours) → local mean sidereal time (degrees).
+    // Greenwich mean sidereal time (hours → degrees).
     let gmst = (6.697_375 + 0.065_709_824_2 * n + when.hour_fraction()).rem_euclid(24.0);
-    let lmst_deg = (gmst * 15.0 + loc.longitude).rem_euclid(360.0);
 
+    // Equation of time in minutes: 4 min per degree of (mean_long − RA).
+    let ra_deg = (right_ascension * RAD).rem_euclid(360.0);
+    let mut eot = 4.0 * (mean_long - ra_deg);
+    if eot > 20.0 {
+        eot -= 1440.0;
+    } else if eot < -20.0 {
+        eot += 1440.0;
+    }
+
+    SolarEphemeris {
+        declination,
+        right_ascension,
+        gmst_deg: gmst * 15.0,
+        equation_of_time: eot,
+    }
+}
+
+/// Combine a precomputed [`SolarEphemeris`] with a location to get the sky
+/// position. Cheap (a handful of trig calls) — use this in per-cell loops.
+pub fn solar_position_at(eph: &SolarEphemeris, loc: Location) -> SolarPosition {
+    let declination = eph.declination;
     // Local hour angle (radians), positive towards the west.
-    let hour_angle = lmst_deg * DEG - right_asc;
+    let lmst_deg = (eph.gmst_deg + loc.longitude).rem_euclid(360.0);
+    let hour_angle = lmst_deg * DEG - eph.right_ascension;
 
     let lat = loc.latitude * DEG;
     let sin_elev =
@@ -191,25 +240,20 @@ pub fn solar_position(when: DateTimeUtc, loc: Location) -> SolarPosition {
     let refr = refraction_correction(elevation_deg);
     let apparent_elev = elevation_deg + refr;
 
-    // Equation of time in minutes: 4 min per degree of (mean_long − RA).
-    let ra_deg = (right_asc * RAD).rem_euclid(360.0);
-    let mut eot = 4.0 * (mean_long - ra_deg);
-    // Fold into the conventional ±20 min window.
-    if eot > 20.0 {
-        eot -= 1440.0;
-    } else if eot < -20.0 {
-        eot += 1440.0;
-    }
-
     SolarPosition {
         zenith: 90.0 - elevation_deg,
         apparent_zenith: 90.0 - apparent_elev,
         elevation: elevation_deg,
         apparent_elevation: apparent_elev,
         azimuth: azimuth * RAD,
-        equation_of_time: eot,
+        equation_of_time: eph.equation_of_time,
         declination: declination * RAD,
     }
+}
+
+/// Compute the solar position for a UTC instant at a location.
+pub fn solar_position(when: DateTimeUtc, loc: Location) -> SolarPosition {
+    solar_position_at(&solar_ephemeris(when), loc)
 }
 
 /// Angle of incidence (degrees) of the beam on a tilted plane.
