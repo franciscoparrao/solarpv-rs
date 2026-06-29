@@ -1,0 +1,18 @@
+[package]
+name = "solarpv-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line interface for the solarpv terrain PV-potential engine"
+
+[[bin]]
+name = "solarpv"
+path = "src/main.rs"
+
+[dependencies]
+solarpv-core = { workspace = true, features = ["terrain"] }
+surtgis-core = { workspace = true }
+clap.workspace = true
+anyhow.workspace = true

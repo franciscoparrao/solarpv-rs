@@ -33,10 +33,25 @@ beam shading from the surrounding topography. It produces per-cell POA insolatio
 ## Layout
 
 ```
-crates/core/            solarpv-core: solar geometry, irradiance, PV models
-crates/core/tests/      pvlib parity tests
+crates/core/            solarpv-core: solar geometry, irradiance, PV models, grid
+crates/core/tests/      pvlib parity + grid integration tests
+crates/cli/             solarpv-cli: the `solarpv` binary (DEM in, rasters out)
 validation/             pvlib reference generator + reference.json
 ```
+
+## CLI
+
+```bash
+cargo run --release -p solarpv-cli -- \
+  --dem dem.tif --lat -23.0 --lon -69.0 --date 2026-06-21 \
+  --out-prefix out/atacama --step 15 --sky perez
+
+# writes out/atacama_{poa,ac,specific_yield}.tif (GeoTIFF, georeferenced)
+```
+
+Reads a single-band elevation GeoTIFF (native reader, no GDAL needed) and writes
+per-cell POA insolation, AC energy and specific yield. `--help` lists all flags
+(albedo, system nameplate, temperature coefficient, weather, horizon resolution).
 
 ## Running
 
@@ -51,9 +66,10 @@ python3 validation/generate_reference.py
 
 - **v0.1** ✅ point PV chain validated against pvlib.
 - **v0.1** ✅ gridded step over a DEM reusing SurtGIS `horizon_angles` +
-  `slope`/`aspect` (feature `terrain`).
-- **v0.1 (next)** CLI; load real DEMs (GeoTIFF) and write output rasters;
-  parallelise the per-cell loop with rayon; per-cell latitude.
+  `slope`/`aspect` (feature `terrain`), parallelised with rayon.
+- **v0.1** ✅ CLI: read DEM GeoTIFF → write POA / AC / specific-yield rasters.
+- **v0.1 (next)** per-cell latitude for large scenes; annual integration
+  (multi-day); GDAL feature for broader format support.
 - **v0.2** TMY / measured irradiance series, tracking, detailed losses; NREL SPA
   for sub-arcminute solar position; PV potential map of a northern-Chile zone.
 
