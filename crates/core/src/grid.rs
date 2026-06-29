@@ -14,6 +14,7 @@
 //! applies across the grid (the usual local-DEM approximation); per-cell
 //! latitude is a v0.2 refinement.
 
+use rayon::prelude::*;
 use surtgis_algorithms::terrain::{
     aspect, horizon_angles, slope, AspectOutput, HorizonParams, SlopeParams, SlopeUnits,
 };
@@ -70,6 +71,17 @@ impl GridConfig {
     }
 }
 
+/// Precomputed solar state for one daylight time step (scene-centre geometry
+/// plus the clear-sky decomposition that is identical for every cell).
+struct SunStep {
+    zenith: f64,
+    azimuth: f64,
+    elev_rad: f64,
+    az_rad: f64,
+    airmass: f64,
+    base: Decomposition,
+}
+
 /// Per-cell results of a gridded PV-potential run.
 pub struct GridResult {
     /// Plane-of-array insolation, Wh/m² over the day.
@@ -99,15 +111,14 @@ pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
     let horizon = horizon_angles(dem, cfg.horizon.clone())
         .map_err(|e| Error::Terrain(format!("horizon_angles: {e}")))?;
 
-    let mut poa_wh = dem.like(0.0);
-    let mut ac_wh = dem.like(0.0);
-
     let dt_hours = cfg.time_step_minutes as f64 / 60.0;
     let steps = (24 * 60) / cfg.time_step_minutes.max(1);
     let doy = cfg.date.day_of_year();
     let dni_extra = extra_radiation(doy);
-    let mut sun_steps = 0usize;
 
+    // Precompute the solar state at the scene centre for every daylight step,
+    // so the per-cell loop never recomputes geometry or decomposition.
+    let mut sun_steps_vec: Vec<SunStep> = Vec::new();
     for i in 0..steps {
         let total_min = i * cfg.time_step_minutes;
         let when = DateTimeUtc::new(
@@ -122,63 +133,75 @@ pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
         if sun.apparent_elevation <= 0.0 {
             continue; // night
         }
-        sun_steps += 1;
-
-        let airmass = relative_airmass(sun.apparent_zenith);
         let ghi = haurwitz_clearsky_ghi(sun.apparent_zenith);
-        let base = erbs(ghi, sun.apparent_zenith, doy);
-        let sun_elev_rad = sun.apparent_elevation * DEG;
-        let sun_az_rad = sun.azimuth * DEG;
+        sun_steps_vec.push(SunStep {
+            zenith: sun.apparent_zenith,
+            azimuth: sun.azimuth,
+            elev_rad: sun.apparent_elevation * DEG,
+            az_rad: sun.azimuth * DEG,
+            airmass: relative_airmass(sun.apparent_zenith),
+            base: erbs(ghi, sun.apparent_zenith, doy),
+        });
+    }
+    let sun_steps = sun_steps_vec.len();
 
-        for r in 0..rows {
-            for c in 0..cols {
-                // Border cells (Horn's method undefined) come back as NaN;
-                // treat them as flat.
-                let raw_tilt = slope_rad.get(r, c).unwrap_or(0.0);
-                let tilt = if raw_tilt.is_finite() { raw_tilt.to_degrees() } else { 0.0 };
-                // Flat cells are tagged -1 by aspect(); their azimuth is moot.
-                let a = asp_deg.get(r, c).unwrap_or(-1.0);
-                let surface_azimuth = if a.is_finite() && a >= 0.0 { a } else { 0.0 };
+    // Per-cell accumulation, parallelised over the flattened grid. Each cell is
+    // independent; slope/aspect/horizon are read-only and Sync.
+    let energies: Vec<(f64, f64)> = (0..rows * cols)
+        .into_par_iter()
+        .map(|idx| {
+            let (r, c) = (idx / cols, idx % cols);
 
-                // Beam shading: the cell is in cast shadow when the sun sits
-                // below the terrain horizon at its azimuth.
-                let h = horizon.interpolate(r, c, sun_az_rad);
-                let decomp = if sun_elev_rad < h {
-                    // No beam; only the diffuse sky and ground reach the cell.
-                    Decomposition { ghi: base.dhi, dni: 0.0, dhi: base.dhi }
+            // Border cells (Horn's method undefined) come back as NaN → flat.
+            let raw_tilt = slope_rad.get(r, c).unwrap_or(0.0);
+            let tilt = if raw_tilt.is_finite() { raw_tilt.to_degrees() } else { 0.0 };
+            let a = asp_deg.get(r, c).unwrap_or(-1.0);
+            let surface_azimuth = if a.is_finite() && a >= 0.0 { a } else { 0.0 };
+
+            let mut poa_acc = 0.0;
+            let mut ac_acc = 0.0;
+            for s in &sun_steps_vec {
+                // Beam shading: cell is in cast shadow when the sun sits below
+                // the terrain horizon at its azimuth.
+                let h = horizon.interpolate(r, c, s.az_rad);
+                let decomp = if s.elev_rad < h {
+                    Decomposition { ghi: s.base.dhi, dni: 0.0, dhi: s.base.dhi }
                 } else {
-                    base
+                    s.base
                 };
-
                 let poa = poa_irradiance(
                     cfg.sky_model,
                     tilt,
                     surface_azimuth,
                     decomp,
-                    sun.apparent_zenith,
-                    sun.azimuth,
+                    s.zenith,
+                    s.azimuth,
                     cfg.albedo,
                     dni_extra,
-                    airmass,
+                    s.airmass,
                 );
-
-                let e_poa = poa.global * dt_hours;
-                let e_ac = ac_power(&cfg.system, poa.global, cfg.temp_air, cfg.wind) * dt_hours;
-                // Accumulate (errors only on out-of-bounds, impossible here).
-                let _ = poa_wh.set(r, c, poa_wh.get(r, c).unwrap_or(0.0) + e_poa);
-                let _ = ac_wh.set(r, c, ac_wh.get(r, c).unwrap_or(0.0) + e_ac);
+                poa_acc += poa.global * dt_hours;
+                ac_acc += ac_power(&cfg.system, poa.global, cfg.temp_air, cfg.wind) * dt_hours;
             }
-        }
-    }
+            (poa_acc, ac_acc)
+        })
+        .collect();
 
+    let poa_vec: Vec<f64> = energies.iter().map(|e| e.0).collect();
+    let ac_vec: Vec<f64> = energies.iter().map(|e| e.1).collect();
     // Specific yield = AC energy (Wh) / nameplate (W) = kWh/kWp.
-    let mut specific_yield = dem.like(0.0);
-    for r in 0..rows {
-        for c in 0..cols {
-            let sy = ac_wh.get(r, c).unwrap_or(0.0) / cfg.system.pdc0;
-            let _ = specific_yield.set(r, c, sy);
-        }
-    }
+    let sy_vec: Vec<f64> = ac_vec.iter().map(|&ac| ac / cfg.system.pdc0).collect();
 
-    Ok(GridResult { poa_wh, ac_wh, specific_yield, sun_steps })
+    let to_raster = |v: Vec<f64>| -> Raster<f64> {
+        let mut out = Raster::from_vec(v, rows, cols).expect("dimensions match dem");
+        out.set_transform(*dem.transform());
+        out
+    };
+
+    Ok(GridResult {
+        poa_wh: to_raster(poa_vec),
+        ac_wh: to_raster(ac_vec),
+        specific_yield: to_raster(sy_vec),
+        sun_steps,
+    })
 }

@@ -13,13 +13,14 @@ categories = ["science::geo"]
 default = []
 serde = ["dep:serde"]
 # Reuse SurtGIS terrain/horizon rasters for the gridded step.
-terrain = ["dep:surtgis-core", "dep:surtgis-algorithms"]
+terrain = ["dep:surtgis-core", "dep:surtgis-algorithms", "dep:rayon"]
 
 [dependencies]
 thiserror.workspace = true
 serde = { workspace = true, optional = true }
 surtgis-core = { workspace = true, optional = true }
 surtgis-algorithms = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde_json.workspace = true
