@@ -154,9 +154,39 @@ def build_annual_point(year=2026, tilt=23.0, surf_azim=0.0,
     }
 
 
+def build_tracking():
+    """Single-axis tracker cases across a range of sun positions and configs,
+    for validating tracking::single_axis against pvlib.tracking.singleaxis."""
+    cases = []
+    configs = [
+        # (axis_tilt, axis_azimuth, max_angle, backtrack, gcr)
+        (0.0, 0.0, 90.0, False, 2.0 / 7.0),
+        (0.0, 0.0, 60.0, True, 0.5),
+        (0.0, 0.0, 45.0, True, 0.35),
+        (20.0, 180.0, 90.0, False, 2.0 / 7.0),
+        (10.0, 200.0, 90.0, True, 0.4),
+    ]
+    suns = [(20.0, 90.0), (45.0, 120.0), (60.0, 80.0), (75.0, 95.0),
+            (85.0, 270.0), (50.0, 200.0), (30.0, 180.0)]
+    for (at, aa, ma, bt, gcr) in configs:
+        for (zen, az) in suns:
+            r = pvlib.tracking.singleaxis(zen, az, axis_tilt=at, axis_azimuth=aa,
+                                          max_angle=ma, backtrack=bt, gcr=gcr)
+            cases.append({
+                "axis_tilt": at, "axis_azimuth": aa, "max_angle": ma,
+                "backtrack": bt, "gcr": gcr, "zenith": zen, "azimuth": az,
+                "tracker_theta": float(np.asarray(r["tracker_theta"]).ravel()[0]),
+                "surface_tilt": float(np.asarray(r["surface_tilt"]).ravel()[0]),
+                "surface_azimuth": float(np.asarray(r["surface_azimuth"]).ravel()[0]),
+                "aoi": float(np.asarray(r["aoi"]).ravel()[0]),
+            })
+    return cases
+
+
 def main():
     samples = build_samples()
     annual_point = build_annual_point()
+    tracking = build_tracking()
     out = {
         "meta": {
             "source": "pvlib " + pvlib.__version__,
@@ -166,6 +196,7 @@ def main():
         },
         "samples": samples,
         "annual_point": annual_point,
+        "tracking": tracking,
     }
     path = pathlib.Path(__file__).with_name("reference.json")
     path.write_text(json.dumps(out, indent=2))

@@ -24,6 +24,7 @@ pub mod error;
 pub mod irradiance;
 pub mod pv;
 pub mod solpos;
+pub mod tracking;
 
 /// Gridded PV potential over a DEM, reusing SurtGIS terrain rasters.
 #[cfg(feature = "terrain")]

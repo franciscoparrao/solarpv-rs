@@ -19,6 +19,7 @@ point in the Atacama desert (northern Chile):
 | `solpos` | Sun position (Michalsky) + angle of incidence | `solarposition.spa_python` (< 0.1° zenith) |
 | `irradiance` | Erbs decomposition, POA transposition (isotropic / Hay-Davies / Perez), Haurwitz clear-sky | `irradiance.erbs`, `irradiance.get_total_irradiance` |
 | `pv` | SAPM cell temperature, PVWatts DC + inverter, energy integration | `temperature.sapm_cell`, `pvsystem.pvwatts_dc`, `inverter.pvwatts` |
+| `tracking` | Single-axis tracker geometry with backtracking | `tracking.singleaxis` (≤ 1e-4°) |
 
 All transposition and PV-chain quantities match pvlib to ≤ 0.2 % relative.
 Beyond the per-component checks, an **end-to-end** test reproduces pvlib's full
@@ -62,6 +63,10 @@ Reads a single-band elevation GeoTIFF (native reader, no GDAL needed) and writes
 per-cell POA insolation, AC energy and specific yield. `--help` lists all flags
 (albedo, system nameplate, temperature coefficient, weather, horizon resolution).
 
+Mounting is selectable: `--mount terrain` (default, ground-following),
+`--mount tilt --tilt 25 --surface-azimuth 0` (fixed racks), or
+`--mount tracker --gcr 0.3` (horizontal single-axis tracker with backtracking).
+
 ## Running
 
 ```bash
@@ -84,9 +89,11 @@ python3 validation/generate_reference.py
 - **v0.1** ✅ end-to-end annual validation vs pvlib (Atacama point, < 0.5 %);
   demonstrated on a real 637×570 Chilean DEM (UTM 19S, ~−32.9°): yield 325–2018
   kWh/kWp·yr, with North-facing slopes (1854) > flat (1726) > South-facing (1509).
-- **v0.2** measured / TMY irradiance series, tracking, detailed losses; NREL SPA
-  for sub-arcminute solar position; GDAL feature; cross-check against PVGIS when
-  network is available.
+- **v0.2** ✅ single-axis tracking (`--mount tracker`, validated vs pvlib): on a
+  flat Atacama site the tracker yields ~+36 % over fixed horizontal modules.
+  Also adds fixed-tilt mounting (`--mount tilt`).
+- **v0.2 (next)** measured / TMY irradiance series, detailed losses; NREL SPA
+  for sub-arcminute solar position; GDAL feature; cross-check against PVGIS.
 
 ## Conventions
 

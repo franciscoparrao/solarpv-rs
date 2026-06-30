@@ -16,6 +16,7 @@ use solarpv_core::{
     },
     pv::{ac_power, pvwatts_ac, pvwatts_dc, sapm_cell_temperature, PvSystem, TempModel, ETA_INV_NOM, ETA_INV_REF},
     solpos::{solar_position, DateTimeUtc, Location},
+    tracking::{single_axis, SingleAxisTracker},
 };
 
 fn load() -> Value {
@@ -198,6 +199,27 @@ fn annual_point_chain_matches_pvlib() {
     // Only residual difference vs pvlib is Michalsky vs NREL SPA solar position.
     assert_close(poa_year, f(ap, "annual_poa_wh"), 0.0, 0.005, "annual POA Wh/m²");
     assert_close(ac_year, f(ap, "annual_ac_wh"), 0.0, 0.005, "annual AC Wh");
+}
+
+#[test]
+fn single_axis_tracking_matches_pvlib() {
+    let data = load();
+    for c in data["tracking"].as_array().unwrap() {
+        let tracker = SingleAxisTracker {
+            axis_tilt: f(c, "axis_tilt"),
+            axis_azimuth: f(c, "axis_azimuth"),
+            max_angle: f(c, "max_angle"),
+            backtrack: c["backtrack"].as_bool().unwrap(),
+            gcr: f(c, "gcr"),
+            cross_axis_tilt: 0.0,
+        };
+        let o = single_axis(&tracker, f(c, "zenith"), f(c, "azimuth")).expect("sun up");
+        let what = format!("tracker(at={}, aa={}, bt={})", tracker.axis_tilt, tracker.axis_azimuth, tracker.backtrack);
+        assert_close(o.tracker_theta, f(c, "tracker_theta"), 1e-4, 1e-5, &format!("{what} theta"));
+        assert_close(o.surface_tilt, f(c, "surface_tilt"), 1e-4, 1e-5, &format!("{what} tilt"));
+        assert_close(o.surface_azimuth, f(c, "surface_azimuth"), 1e-4, 1e-5, &format!("{what} az"));
+        assert_close(o.aoi, f(c, "aoi"), 1e-4, 1e-5, &format!("{what} aoi"));
+    }
 }
 
 #[test]

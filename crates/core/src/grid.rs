@@ -28,8 +28,22 @@ use crate::irradiance::{
 };
 use crate::pv::{ac_power, PvSystem};
 use crate::solpos::{solar_ephemeris, solar_position, solar_position_at, DateTimeUtc, Location};
+use crate::tracking::{single_axis, SingleAxisTracker};
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
+
+/// How the modules are mounted on each cell, which sets their orientation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Mount {
+    /// Ground-following: panel tilt/azimuth equal the terrain slope/aspect.
+    FixedTerrain,
+    /// Fixed racks at a chosen tilt and azimuth (degrees, azimuth clockwise
+    /// from North), the same on every cell.
+    FixedTilt { tilt: f64, surface_azimuth: f64 },
+    /// Single-axis tracker; the orientation follows the sun each time step and
+    /// the terrain only contributes horizon shading.
+    SingleAxis(SingleAxisTracker),
+}
 
 /// How the latitude/longitude used for solar geometry is chosen across the grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +81,8 @@ pub struct GridConfig {
     pub horizon: HorizonParams,
     /// How latitude/longitude is chosen per cell for solar geometry.
     pub latitude_mode: LatitudeMode,
+    /// How the modules are mounted (fixed to terrain, fixed tilt, or tracking).
+    pub mount: Mount,
 }
 
 impl GridConfig {
@@ -84,6 +100,7 @@ impl GridConfig {
             wind: 2.0,
             horizon: HorizonParams::default(),
             latitude_mode: LatitudeMode::Center,
+            mount: Mount::FixedTerrain,
         }
     }
 }
@@ -203,9 +220,19 @@ fn day_energies(
     }
     let sun_steps = sun_steps_vec.len();
 
-    // Shading + POA + PV for one cell at one solar state. Returns the (POA, AC)
+    // Shading + POA + PV for one cell at one solar state. `terrain_tilt`/
+    // `terrain_azimuth` describe the ground-following orientation; the actual
+    // module orientation depends on the configured mount. Returns the (POA, AC)
     // energy increments for the step.
-    let cell_step = |r: usize, c: usize, tilt: f64, surface_azimuth: f64, s: &SunStep| {
+    let cell_step = |r: usize, c: usize, terrain_tilt: f64, terrain_azimuth: f64, s: &SunStep| {
+        let (tilt, surface_azimuth) = match cfg.mount {
+            Mount::FixedTerrain => (terrain_tilt, terrain_azimuth),
+            Mount::FixedTilt { tilt, surface_azimuth } => (tilt, surface_azimuth),
+            Mount::SingleAxis(tracker) => match single_axis(&tracker, s.zenith, s.azimuth) {
+                Some(o) => (o.surface_tilt, o.surface_azimuth),
+                None => return (0.0, 0.0), // sun below horizon
+            },
+        };
         // Beam shading: cell is in cast shadow when the sun sits below the
         // terrain horizon at its azimuth.
         let h = horizon.interpolate(r, c, s.az_rad);

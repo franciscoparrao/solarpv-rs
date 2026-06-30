@@ -7,11 +7,12 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
 
 use solarpv_core::grid::{
-    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode,
+    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode, Mount,
 };
 use solarpv_core::irradiance::SkyModel;
 use solarpv_core::pv::PvSystem;
 use solarpv_core::solpos::{DateTimeUtc, Location};
+use solarpv_core::tracking::SingleAxisTracker;
 use surtgis_core::io::{read_geotiff, write_geotiff};
 
 /// Sky-diffuse transposition model (CLI flag).
@@ -30,6 +31,17 @@ impl From<Sky> for SkyModel {
             Sky::Perez => SkyModel::Perez,
         }
     }
+}
+
+/// Module mounting (CLI flag).
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum MountKind {
+    /// Panels follow the terrain slope/aspect.
+    Terrain,
+    /// Fixed tilt (see `--tilt` / `--surface-azimuth`).
+    Tilt,
+    /// Horizontal single-axis tracker with backtracking.
+    Tracker,
 }
 
 /// Terrain photovoltaic potential from a DEM ("PVGIS lite").
@@ -107,6 +119,23 @@ struct Cli {
     /// N > 0 = every N-th day of the year. Only used with `--annual`.
     #[arg(long, default_value_t = 0)]
     day_stride: u32,
+
+    /// Module mounting.
+    #[arg(long, value_enum, default_value_t = MountKind::Terrain)]
+    mount: MountKind,
+
+    /// Fixed-tilt angle in degrees (only for `--mount tilt`).
+    #[arg(long, default_value_t = 0.0)]
+    tilt: f64,
+
+    /// Fixed-tilt surface azimuth, degrees clockwise from North
+    /// (only for `--mount tilt`; 0 = North-facing).
+    #[arg(long, default_value_t = 0.0)]
+    surface_azimuth: f64,
+
+    /// Tracker ground coverage ratio (only for `--mount tracker`).
+    #[arg(long, default_value_t = 2.0 / 7.0)]
+    gcr: f64,
 }
 
 /// Parse `YYYY-MM-DD` into a midnight-UTC datetime.
@@ -150,6 +179,14 @@ fn main() -> Result<()> {
         LatitudeMode::PerCellGeographic
     } else {
         LatitudeMode::Center
+    };
+    cfg.mount = match cli.mount {
+        MountKind::Terrain => Mount::FixedTerrain,
+        MountKind::Tilt => Mount::FixedTilt {
+            tilt: cli.tilt,
+            surface_azimuth: cli.surface_azimuth,
+        },
+        MountKind::Tracker => Mount::SingleAxis(SingleAxisTracker { gcr: cli.gcr, ..Default::default() }),
     };
 
     let (res, unit) = if cli.annual {

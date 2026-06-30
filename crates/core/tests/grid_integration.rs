@@ -7,9 +7,10 @@
 #![cfg(feature = "terrain")]
 
 use solarpv_core::grid::{
-    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode,
+    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode, Mount,
 };
 use solarpv_core::solpos::{DateTimeUtc, Location};
+use solarpv_core::tracking::SingleAxisTracker;
 use surtgis_core::{GeoTransform, Raster};
 
 const CELL: f64 = 30.0;
@@ -160,6 +161,29 @@ fn annual_integration_is_plausible_and_sampling_agnostic() {
     .unwrap();
     let sy_day = day.specific_yield.get(2, 2).unwrap();
     assert!(sy_m > sy_day * 50.0, "annual {sy_m} vs single day {sy_day}");
+}
+
+#[test]
+fn single_axis_tracker_outyields_fixed_horizontal() {
+    // On a flat plane, a single-axis tracker should harvest clearly more annual
+    // energy than fixed horizontal modules.
+    let dem = flat_dem(5);
+    let center = Location::new(-23.0, -69.0).unwrap();
+    let date = DateTimeUtc::new(2026, 1, 1, 0, 0, 0).unwrap();
+    let mut cfg = GridConfig::new(center, date);
+    cfg.time_step_minutes = 30;
+
+    let mut fixed = cfg.clone();
+    fixed.mount = Mount::FixedTilt { tilt: 0.0, surface_azimuth: 0.0 };
+    let mut tracked = cfg.clone();
+    tracked.mount = Mount::SingleAxis(SingleAxisTracker::default());
+
+    let yr_fixed = pv_potential_annual(&dem, &fixed, DaySampling::MonthlyRepresentative).unwrap();
+    let yr_track = pv_potential_annual(&dem, &tracked, DaySampling::MonthlyRepresentative).unwrap();
+
+    let sy_fixed = yr_fixed.specific_yield.get(2, 2).unwrap();
+    let sy_track = yr_track.specific_yield.get(2, 2).unwrap();
+    assert!(sy_track > sy_fixed * 1.15, "tracker {sy_track} vs fixed-flat {sy_fixed}");
 }
 
 #[test]
