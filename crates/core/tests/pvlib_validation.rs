@@ -15,6 +15,7 @@ use solarpv_core::{
         Decomposition, SkyModel,
     },
     pv::{ac_power, pvwatts_ac, pvwatts_dc, sapm_cell_temperature, PvSystem, TempModel, ETA_INV_NOM, ETA_INV_REF},
+    losses::{IamModel, PvLosses},
     solpos::{solar_position, DateTimeUtc, Location},
     spa::{solar_position_spa, SpaParams},
     tracking::{single_axis, SingleAxisTracker},
@@ -180,6 +181,32 @@ fn nrel_spa_matches_pvlib_sub_arcminute() {
     // NREL SPA reproduces pvlib to a few arcseconds — far below an arcminute.
     assert!(max_zen < 0.0005, "max zenith error {max_zen:.6}° (~{:.1} arcsec)", max_zen * 3600.0);
     assert!(max_az < 0.002, "max azimuth error {max_az:.6}° (~{:.1} arcsec)", max_az * 3600.0);
+}
+
+#[test]
+fn iam_models_match_pvlib() {
+    let data = load();
+    let l = &data["losses"];
+    let aois: Vec<f64> = l["aois"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
+    let models: [(&str, IamModel); 3] = [
+        ("ashrae", IamModel::ashrae()),
+        ("martin_ruiz", IamModel::martin_ruiz()),
+        ("physical", IamModel::physical()),
+    ];
+    for (key, model) in models {
+        let want: Vec<f64> =
+            l["iam"][key].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
+        for (i, &aoi) in aois.iter().enumerate() {
+            assert_close(model.iam(aoi), want[i], 1e-6, 1e-6, &format!("iam {key} @ {aoi}°"));
+        }
+    }
+}
+
+#[test]
+fn pvwatts_loss_breakdown_matches_pvlib() {
+    let data = load();
+    let want = f(&data["losses"], "pvwatts_losses_pct");
+    assert_close(PvLosses::default().total_percent(), want, 1e-6, 1e-6, "pvwatts losses %");
 }
 
 #[test]

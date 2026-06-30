@@ -208,11 +208,25 @@ def build_spa():
     return cases
 
 
+def build_losses():
+    """IAM curves (ashrae, martin_ruiz, physical) and the PVWatts loss
+    breakdown, for validating the losses module against pvlib."""
+    aois = [0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 85.0]
+    iam = {
+        "ashrae": [float(pvlib.iam.ashrae(a, b=0.05)) for a in aois],
+        "martin_ruiz": [float(pvlib.iam.martin_ruiz(a, a_r=0.16)) for a in aois],
+        "physical": [float(pvlib.iam.physical(a, n=1.526, K=4.0, L=0.002)) for a in aois],
+    }
+    pvwatts_losses = float(pvlib.pvsystem.pvwatts_losses())  # defaults → ~14.08 %
+    return {"aois": aois, "iam": iam, "pvwatts_losses_pct": pvwatts_losses}
+
+
 def main():
     samples = build_samples()
     annual_point = build_annual_point()
     tracking = build_tracking()
     spa_cases = build_spa()
+    losses = build_losses()
     out = {
         "meta": {
             "source": "pvlib " + pvlib.__version__,
@@ -224,6 +238,7 @@ def main():
         "annual_point": annual_point,
         "tracking": tracking,
         "spa": spa_cases,
+        "losses": losses,
     }
     path = pathlib.Path(__file__).with_name("reference.json")
     path.write_text(json.dumps(out, indent=2))

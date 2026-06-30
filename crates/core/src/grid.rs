@@ -27,8 +27,12 @@ use crate::irradiance::{
     erbs, extra_radiation, haurwitz_clearsky_ghi, poa_irradiance, relative_airmass, Decomposition,
     SkyModel,
 };
+use crate::losses::IamModel;
 use crate::pv::{ac_power, PvSystem};
-use crate::solpos::{solar_ephemeris, solar_position, solar_position_at, DateTimeUtc, Location, SolarPosition};
+use crate::solpos::{
+    angle_of_incidence, solar_ephemeris, solar_position, solar_position_at, DateTimeUtc, Location,
+    SolarPosition,
+};
 use crate::spa::{solar_position_spa, SpaParams};
 use crate::tracking::{single_axis, SingleAxisTracker};
 
@@ -89,6 +93,9 @@ pub struct GridConfig {
     /// accuracy); `None` uses the faster Michalsky model. Ignored by
     /// [`LatitudeMode::PerCellGeographic`], which relies on shared ephemerides.
     pub spa: Option<SpaParams>,
+    /// Incidence-angle modifier applied to the beam component when `Some`
+    /// (angular reflection loss). `None` leaves the beam unmodified.
+    pub iam: Option<IamModel>,
 }
 
 impl GridConfig {
@@ -108,6 +115,7 @@ impl GridConfig {
             latitude_mode: LatitudeMode::Center,
             mount: Mount::FixedTerrain,
             spa: None,
+            iam: None,
         }
     }
 }
@@ -167,8 +175,17 @@ fn step_energy(
         cfg.sky_model, tilt, surface_azimuth, decomp, s.zenith, s.azimuth, cfg.albedo,
         s.dni_extra, s.airmass,
     );
+    // Reported POA is geometric; IAM reduces only the effective irradiance the
+    // cells convert (beam reflection loss), keeping the two quantities distinct.
+    let effective = match cfg.iam {
+        Some(model) => {
+            let aoi = angle_of_incidence(tilt, surface_azimuth, s.zenith, s.azimuth);
+            poa.direct * model.iam(aoi) + poa.sky_diffuse + poa.ground_diffuse
+        }
+        None => poa.global,
+    };
     let e_poa = poa.global * s.dt_hours;
-    let e_ac = ac_power(&cfg.system, poa.global, s.temp_air, s.wind) * s.dt_hours;
+    let e_ac = ac_power(&cfg.system, effective, s.temp_air, s.wind) * s.dt_hours;
     (e_poa, e_ac)
 }
 

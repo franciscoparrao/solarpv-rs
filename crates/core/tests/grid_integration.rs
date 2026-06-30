@@ -11,6 +11,7 @@ use solarpv_core::grid::{
     Mount, WeatherRecord,
 };
 use solarpv_core::irradiance::haurwitz_clearsky_ghi;
+use solarpv_core::losses::IamModel;
 use solarpv_core::solpos::{solar_position, DateTimeUtc, Location};
 use solarpv_core::tracking::SingleAxisTracker;
 use surtgis_core::{GeoTransform, Raster};
@@ -223,6 +224,34 @@ fn cloudy_series_yields_less_than_clearsky() {
     let c = pv_potential_series(&dem, &cfg, &clear, 0.5).unwrap();
     let d = pv_potential_series(&dem, &cfg, &cloudy, 0.5).unwrap();
     assert!(d.specific_yield.get(2, 2).unwrap() < c.specific_yield.get(2, 2).unwrap());
+}
+
+#[test]
+fn iam_reduces_yield_but_not_reported_poa() {
+    // Enabling the IAM lowers AC yield (angular reflection) while the reported
+    // geometric POA insolation is unchanged.
+    let dem = ridge_dem(5);
+    let center = Location::new(-23.0, -69.0).unwrap();
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+    let mut base = GridConfig::new(center, date);
+    base.time_step_minutes = 30;
+    base.mount = Mount::FixedTilt { tilt: 23.0, surface_azimuth: 0.0 };
+
+    let mut withiam = base.clone();
+    withiam.iam = Some(IamModel::physical());
+
+    let plain = pv_potential(&dem, &base).unwrap();
+    let modded = pv_potential(&dem, &withiam).unwrap();
+
+    let (r, c) = (2, 2);
+    assert!(
+        modded.ac_wh.get(r, c).unwrap() < plain.ac_wh.get(r, c).unwrap(),
+        "IAM should reduce AC energy"
+    );
+    assert!(
+        (modded.poa_wh.get(r, c).unwrap() - plain.poa_wh.get(r, c).unwrap()).abs() < 1e-6,
+        "geometric POA should be unchanged by IAM"
+    );
 }
 
 #[test]

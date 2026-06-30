@@ -22,6 +22,7 @@
 
 pub mod error;
 pub mod irradiance;
+pub mod losses;
 pub mod pv;
 pub mod solpos;
 /// NREL Solar Position Algorithm (high-accuracy alternative to [`solpos`]).

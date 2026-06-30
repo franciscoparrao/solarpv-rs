@@ -45,6 +45,19 @@ enum MountKind {
     Tracker,
 }
 
+/// Incidence-angle-modifier model (CLI flag).
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum IamKind {
+    /// No angular reflection loss.
+    None,
+    /// ASHRAE model (b = 0.05).
+    Ashrae,
+    /// Martín–Ruiz model (a_r = 0.16).
+    MartinRuiz,
+    /// Physical Fresnel model (n = 1.526).
+    Physical,
+}
+
 /// Terrain photovoltaic potential from a DEM ("PVGIS lite").
 #[derive(Parser, Debug)]
 #[command(name = "solarpv", version, about, allow_negative_numbers = true)]
@@ -150,6 +163,14 @@ struct Cli {
     /// Use the high-accuracy NREL SPA for solar position (default: Michalsky).
     #[arg(long, default_value_t = false)]
     spa: bool,
+
+    /// Incidence-angle-modifier model for angular reflection loss.
+    #[arg(long, value_enum, default_value_t = IamKind::None)]
+    iam: IamKind,
+
+    /// System DC loss fraction (soiling, wiring, mismatch, …). Default 0.14.
+    #[arg(long, default_value_t = 0.14)]
+    loss: f64,
 }
 
 /// Minimal CSV reader for the weather series. Maps columns by header name;
@@ -229,6 +250,7 @@ fn main() -> Result<()> {
     system.pdc0 = cli.pdc0;
     system.gamma_pdc = cli.gamma;
     system.pdc0_inv = cli.pdc0 / 1.1;
+    system.system_losses = cli.loss;
 
     let mut cfg = GridConfig::new(center, date);
     cfg.time_step_minutes = cli.step;
@@ -247,6 +269,12 @@ fn main() -> Result<()> {
     if cli.spa {
         cfg.spa = Some(solarpv_core::spa::SpaParams { elevation: 0.0, ..Default::default() });
     }
+    cfg.iam = match cli.iam {
+        IamKind::None => None,
+        IamKind::Ashrae => Some(solarpv_core::losses::IamModel::ashrae()),
+        IamKind::MartinRuiz => Some(solarpv_core::losses::IamModel::martin_ruiz()),
+        IamKind::Physical => Some(solarpv_core::losses::IamModel::physical()),
+    };
     cfg.mount = match cli.mount {
         MountKind::Terrain => Mount::FixedTerrain,
         MountKind::Tilt => Mount::FixedTilt {

@@ -21,6 +21,7 @@ point in the Atacama desert (northern Chile):
 | `irradiance` | Erbs decomposition, POA transposition (isotropic / Hay-Davies / Perez), Haurwitz clear-sky | `irradiance.erbs`, `irradiance.get_total_irradiance` |
 | `pv` | SAPM cell temperature, PVWatts DC + inverter, energy integration | `temperature.sapm_cell`, `pvsystem.pvwatts_dc`, `inverter.pvwatts` |
 | `tracking` | Single-axis tracker geometry with backtracking | `tracking.singleaxis` (≤ 1e-4°) |
+| `losses` | IAM (ASHRAE/Martín-Ruiz/physical) + PVWatts loss breakdown | `iam.*`, `pvsystem.pvwatts_losses` (≤ 1e-6) |
 
 All transposition and PV-chain quantities match pvlib to ≤ 0.2 % relative.
 Beyond the per-component checks, an **end-to-end** test reproduces pvlib's full
@@ -102,8 +103,10 @@ python3 validation/generate_reference.py
   Feeding back the internal Haurwitz series reproduces the clear-sky path to 1e-6.
 - **v0.2** ✅ NREL SPA solar position (`--spa`, validated vs pvlib to < 2 arcsec):
   the high-accuracy alternative to Michalsky, optional per run.
-- **v0.2 (next)** detailed losses (IAM, spectral, soiling); GDAL feature;
-  cross-check against PVGIS.
+- **v0.2** ✅ detailed losses (validated vs pvlib to 1e-6): incidence-angle
+  modifiers (`--iam ashrae|martin-ruiz|physical`, beam reflection loss ≈ −2 %/yr
+  fixed tilt) and the PVWatts loss breakdown; `--loss` overrides the DC derate.
+- **v0.2 (next)** GDAL feature for broader formats; cross-check against PVGIS.
 
 ## Conventions
 
