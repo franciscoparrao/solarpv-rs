@@ -8,11 +8,12 @@
 //!
 //! For a self-contained "clear-sky PV potential" map, global horizontal
 //! irradiance is generated with the Haurwitz clear-sky model and decomposed with
-//! Erbs; supplying measured / TMY series is left to v0.2.
+//! Erbs ([`pv_potential`], [`pv_potential_annual`]). To drive the engine from a
+//! measured or TMY irradiance series instead, use [`pv_potential_series`].
 //!
-//! The scene is assumed small enough that solar geometry at the scene centre
-//! applies across the grid (the usual local-DEM approximation); per-cell
-//! latitude is a v0.2 refinement.
+//! Scene geometry is taken at the scene centre by default; [`LatitudeMode`]
+//! switches to per-cell latitude/longitude for scenes large enough that it
+//! matters. Modules can be ground-following, fixed-tilt or tracking ([`Mount`]).
 
 use rayon::prelude::*;
 use surtgis_algorithms::terrain::{
@@ -105,15 +106,56 @@ impl GridConfig {
     }
 }
 
-/// Precomputed solar state for one daylight time step (scene-centre geometry
-/// plus the clear-sky decomposition that is identical for every cell).
+/// Precomputed solar state plus the irradiance/weather for one time step
+/// (scene geometry and the decomposition shared by every cell).
 struct SunStep {
     zenith: f64,
     azimuth: f64,
     elev_rad: f64,
     az_rad: f64,
     airmass: f64,
+    dni_extra: f64,
     base: Decomposition,
+    temp_air: f64,
+    wind: f64,
+    /// Hours this step represents in the energy integration.
+    dt_hours: f64,
+}
+
+/// Shading + transposition + PV for one cell at one [`SunStep`]. Returns the
+/// `(POA Wh, AC Wh)` energy contributed by this step.
+fn step_energy(
+    cfg: &GridConfig,
+    horizon: &HorizonAngles,
+    r: usize,
+    c: usize,
+    terrain_tilt: f64,
+    terrain_azimuth: f64,
+    s: &SunStep,
+) -> (f64, f64) {
+    let (tilt, surface_azimuth) = match cfg.mount {
+        Mount::FixedTerrain => (terrain_tilt, terrain_azimuth),
+        Mount::FixedTilt { tilt, surface_azimuth } => (tilt, surface_azimuth),
+        Mount::SingleAxis(tracker) => match single_axis(&tracker, s.zenith, s.azimuth) {
+            Some(o) => (o.surface_tilt, o.surface_azimuth),
+            None => return (0.0, 0.0),
+        },
+    };
+    // Beam shading: cell is in cast shadow when the sun sits below the terrain
+    // horizon at its azimuth.
+    let h = horizon.interpolate(r, c, s.az_rad);
+    let decomp = if s.elev_rad < h {
+        Decomposition { ghi: s.base.dhi, dni: 0.0, dhi: s.base.dhi }
+    } else {
+        s.base
+    };
+    let poa = poa_irradiance(
+        cfg.sky_model, tilt, surface_azimuth, decomp, s.zenith, s.azimuth, cfg.albedo,
+        s.dni_extra, s.airmass,
+    );
+    let e_poa = poa.global * s.dt_hours;
+    let e_ac = ac_power(&cfg.system, poa.global, s.temp_air, s.wind) * s.dt_hours;
+    (e_poa, e_ac)
 }
 
 /// Per-cell results of a gridded PV-potential run.
@@ -213,49 +255,16 @@ fn day_energies(
                 elev_rad: sun.apparent_elevation * DEG,
                 az_rad: sun.azimuth * DEG,
                 airmass: relative_airmass(sun.apparent_zenith),
+                dni_extra,
                 base: erbs(ghi, sun.apparent_zenith, doy),
+                temp_air: cfg.temp_air,
+                wind: cfg.wind,
+                dt_hours,
             });
         }
         ephemerides.push(eph);
     }
     let sun_steps = sun_steps_vec.len();
-
-    // Shading + POA + PV for one cell at one solar state. `terrain_tilt`/
-    // `terrain_azimuth` describe the ground-following orientation; the actual
-    // module orientation depends on the configured mount. Returns the (POA, AC)
-    // energy increments for the step.
-    let cell_step = |r: usize, c: usize, terrain_tilt: f64, terrain_azimuth: f64, s: &SunStep| {
-        let (tilt, surface_azimuth) = match cfg.mount {
-            Mount::FixedTerrain => (terrain_tilt, terrain_azimuth),
-            Mount::FixedTilt { tilt, surface_azimuth } => (tilt, surface_azimuth),
-            Mount::SingleAxis(tracker) => match single_axis(&tracker, s.zenith, s.azimuth) {
-                Some(o) => (o.surface_tilt, o.surface_azimuth),
-                None => return (0.0, 0.0), // sun below horizon
-            },
-        };
-        // Beam shading: cell is in cast shadow when the sun sits below the
-        // terrain horizon at its azimuth.
-        let h = horizon.interpolate(r, c, s.az_rad);
-        let decomp = if s.elev_rad < h {
-            Decomposition { ghi: s.base.dhi, dni: 0.0, dhi: s.base.dhi }
-        } else {
-            s.base
-        };
-        let poa = poa_irradiance(
-            cfg.sky_model,
-            tilt,
-            surface_azimuth,
-            decomp,
-            s.zenith,
-            s.azimuth,
-            cfg.albedo,
-            dni_extra,
-            s.airmass,
-        );
-        let e_poa = poa.global * dt_hours;
-        let e_ac = ac_power(&cfg.system, poa.global, cfg.temp_air, cfg.wind) * dt_hours;
-        (e_poa, e_ac)
-    };
 
     let transform = *dem.transform();
 
@@ -277,7 +286,7 @@ fn day_energies(
             match cfg.latitude_mode {
                 LatitudeMode::Center => {
                     for s in &sun_steps_vec {
-                        let (ep, ea) = cell_step(r, c, tilt, surface_azimuth, s);
+                        let (ep, ea) = step_energy(cfg, horizon, r, c, tilt, surface_azimuth, s);
                         poa_acc += ep;
                         ac_acc += ea;
                     }
@@ -298,9 +307,13 @@ fn day_energies(
                             elev_rad: sun.apparent_elevation * DEG,
                             az_rad: sun.azimuth * DEG,
                             airmass: relative_airmass(sun.apparent_zenith),
+                            dni_extra,
                             base: erbs(ghi, sun.apparent_zenith, doy),
+                            temp_air: cfg.temp_air,
+                            wind: cfg.wind,
+                            dt_hours,
                         };
-                        let (ep, ea) = cell_step(r, c, tilt, surface_azimuth, &s);
+                        let (ep, ea) = step_energy(cfg, horizon, r, c, tilt, surface_azimuth, &s);
                         poa_acc += ep;
                         ac_acc += ea;
                     }
@@ -394,4 +407,99 @@ pub fn pv_potential_annual(
         }
     }
     Ok(build_result(dem, cfg, poa_tot, ac_tot, days.len()))
+}
+
+/// One time-stamped weather observation driving a measured / TMY run.
+///
+/// Only `ghi` is required. If `dni`/`dhi` are `None` they are estimated from
+/// `ghi` with the Erbs model; if `temp_air`/`wind` are `None` the
+/// [`GridConfig`] scalars are used.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct WeatherRecord {
+    /// Observation time (UTC).
+    pub when: DateTimeUtc,
+    /// Global horizontal irradiance, W/m².
+    pub ghi: f64,
+    /// Direct normal irradiance, W/m² (optional).
+    pub dni: Option<f64>,
+    /// Diffuse horizontal irradiance, W/m² (optional).
+    pub dhi: Option<f64>,
+    /// Air temperature, °C (optional).
+    pub temp_air: Option<f64>,
+    /// Wind speed, m/s (optional).
+    pub wind: Option<f64>,
+}
+
+/// Compute PV potential over a DEM from a measured / TMY irradiance series.
+///
+/// Unlike [`pv_potential`] / [`pv_potential_annual`], which synthesise clear-sky
+/// irradiance, this consumes an explicit `records` series for the scene and
+/// integrates it (each record represents `dt_hours`). Scene-centre geometry is
+/// used ([`LatitudeMode::Center`]); the terrain still modulates each cell via
+/// orientation and horizon shading. Output totals span whatever period the
+/// series covers (e.g. a full year for an 8760-hour TMY).
+pub fn pv_potential_series(
+    dem: &Raster<f64>,
+    cfg: &GridConfig,
+    records: &[WeatherRecord],
+    dt_hours: f64,
+) -> Result<GridResult> {
+    let (rows, cols) = dem.shape();
+    let terrain = build_terrain(dem, &cfg.horizon)?;
+    let slope_rad = &terrain.slope_rad;
+    let asp_deg = &terrain.asp_deg;
+    let horizon = &terrain.horizon;
+
+    // Build the per-step solar + weather state at the scene centre.
+    let mut steps: Vec<SunStep> = Vec::with_capacity(records.len());
+    for rec in records {
+        let sun = solar_position(rec.when, cfg.center);
+        if sun.apparent_elevation <= 0.0 || rec.ghi <= 0.0 {
+            continue; // night or no irradiance contributes nothing
+        }
+        let z = sun.apparent_zenith;
+        let doy = rec.when.day_of_year();
+        let base = match (rec.dni, rec.dhi) {
+            (Some(dni), Some(dhi)) => Decomposition { ghi: rec.ghi, dni, dhi },
+            _ => erbs(rec.ghi, z, doy),
+        };
+        steps.push(SunStep {
+            zenith: z,
+            azimuth: sun.azimuth,
+            elev_rad: sun.apparent_elevation * DEG,
+            az_rad: sun.azimuth * DEG,
+            airmass: relative_airmass(z),
+            dni_extra: extra_radiation(doy),
+            base,
+            temp_air: rec.temp_air.unwrap_or(cfg.temp_air),
+            wind: rec.wind.unwrap_or(cfg.wind),
+            dt_hours,
+        });
+    }
+    let n_steps = steps.len();
+
+    let energies: Vec<(f64, f64)> = (0..rows * cols)
+        .into_par_iter()
+        .map(|idx| {
+            let (r, c) = (idx / cols, idx % cols);
+            let raw_tilt = slope_rad.get(r, c).unwrap_or(0.0);
+            let tilt = if raw_tilt.is_finite() { raw_tilt.to_degrees() } else { 0.0 };
+            let a = asp_deg.get(r, c).unwrap_or(-1.0);
+            let surface_azimuth = if a.is_finite() && a >= 0.0 { a } else { 0.0 };
+
+            let mut poa_acc = 0.0;
+            let mut ac_acc = 0.0;
+            for s in &steps {
+                let (ep, ea) = step_energy(cfg, horizon, r, c, tilt, surface_azimuth, s);
+                poa_acc += ep;
+                ac_acc += ea;
+            }
+            (poa_acc, ac_acc)
+        })
+        .collect();
+
+    let poa_vec = energies.iter().map(|e| e.0).collect();
+    let ac_vec = energies.iter().map(|e| e.1).collect();
+    Ok(build_result(dem, cfg, poa_vec, ac_vec, n_steps))
 }

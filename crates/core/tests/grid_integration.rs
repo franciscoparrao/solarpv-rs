@@ -7,9 +7,11 @@
 #![cfg(feature = "terrain")]
 
 use solarpv_core::grid::{
-    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode, Mount,
+    pv_potential, pv_potential_annual, pv_potential_series, DaySampling, GridConfig, LatitudeMode,
+    Mount, WeatherRecord,
 };
-use solarpv_core::solpos::{DateTimeUtc, Location};
+use solarpv_core::irradiance::haurwitz_clearsky_ghi;
+use solarpv_core::solpos::{solar_position, DateTimeUtc, Location};
 use solarpv_core::tracking::SingleAxisTracker;
 use surtgis_core::{GeoTransform, Raster};
 
@@ -161,6 +163,66 @@ fn annual_integration_is_plausible_and_sampling_agnostic() {
     .unwrap();
     let sy_day = day.specific_yield.get(2, 2).unwrap();
     assert!(sy_m > sy_day * 50.0, "annual {sy_m} vs single day {sy_day}");
+}
+
+#[test]
+fn series_with_clearsky_ghi_reproduces_internal_path() {
+    // Feeding pv_potential_series the same Haurwitz GHI the engine generates
+    // internally must reproduce pv_potential exactly (same geometry, same Erbs).
+    let dem = ridge_dem(7);
+    let center = Location::new(-23.0, -69.0).unwrap();
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+    let mut cfg = GridConfig::new(center, date);
+    let step = 30u32;
+    cfg.time_step_minutes = step;
+
+    let internal = pv_potential(&dem, &cfg).unwrap();
+
+    // Build the matching Haurwitz series at the scene centre.
+    let mut records = Vec::new();
+    for i in 0..(24 * 60 / step) {
+        let total_min = i * step;
+        let when = DateTimeUtc::new(2026, 6, 21, total_min / 60, total_min % 60, 0).unwrap();
+        let sun = solar_position(when, center);
+        records.push(WeatherRecord {
+            when,
+            ghi: haurwitz_clearsky_ghi(sun.apparent_zenith),
+            dni: None,
+            dhi: None,
+            temp_air: None,
+            wind: None,
+        });
+    }
+    let series = pv_potential_series(&dem, &cfg, &records, step as f64 / 60.0).unwrap();
+
+    for r in 0..7 {
+        for c in 0..7 {
+            let a = internal.specific_yield.get(r, c).unwrap();
+            let b = series.specific_yield.get(r, c).unwrap();
+            assert!((a - b).abs() < 1e-6, "cell ({r},{c}): internal {a} vs series {b}");
+        }
+    }
+}
+
+#[test]
+fn cloudy_series_yields_less_than_clearsky() {
+    // Halving the irradiance series must reduce the yield.
+    let dem = flat_dem(5);
+    let center = Location::new(-23.0, -69.0).unwrap();
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+    let cfg = GridConfig::new(center, date);
+
+    let mut clear = Vec::new();
+    let mut cloudy = Vec::new();
+    for i in 0..48u32 {
+        let when = DateTimeUtc::new(2026, 6, 21, i * 30 / 60, i * 30 % 60, 0).unwrap();
+        let g = haurwitz_clearsky_ghi(solar_position(when, center).apparent_zenith);
+        clear.push(WeatherRecord { when, ghi: g, dni: None, dhi: None, temp_air: None, wind: None });
+        cloudy.push(WeatherRecord { when, ghi: g * 0.5, dni: None, dhi: None, temp_air: None, wind: None });
+    }
+    let c = pv_potential_series(&dem, &cfg, &clear, 0.5).unwrap();
+    let d = pv_potential_series(&dem, &cfg, &cloudy, 0.5).unwrap();
+    assert!(d.specific_yield.get(2, 2).unwrap() < c.specific_yield.get(2, 2).unwrap());
 }
 
 #[test]

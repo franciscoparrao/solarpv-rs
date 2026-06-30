@@ -67,6 +67,10 @@ Mounting is selectable: `--mount terrain` (default, ground-following),
 `--mount tilt --tilt 25 --surface-azimuth 0` (fixed racks), or
 `--mount tracker --gcr 0.3` (horizontal single-axis tracker with backtracking).
 
+To use real irradiance instead of clear-sky, pass a CSV with
+`--weather tmy.csv --weather-dt 1.0` (header
+`year,month,day,hour,ghi[,dni,dhi,temp_air,wind]`, UTC).
+
 ## Running
 
 ```bash
@@ -92,8 +96,11 @@ python3 validation/generate_reference.py
 - **v0.2** ✅ single-axis tracking (`--mount tracker`, validated vs pvlib): on a
   flat Atacama site the tracker yields ~+36 % over fixed horizontal modules.
   Also adds fixed-tilt mounting (`--mount tilt`).
-- **v0.2 (next)** measured / TMY irradiance series, detailed losses; NREL SPA
-  for sub-arcminute solar position; GDAL feature; cross-check against PVGIS.
+- **v0.2** ✅ measured / TMY irradiance series (`--weather tmy.csv`): drive the
+  engine from real GHI (+ optional DNI/DHI/temp/wind) instead of clear-sky.
+  Feeding back the internal Haurwitz series reproduces the clear-sky path to 1e-6.
+- **v0.2 (next)** detailed losses; NREL SPA for sub-arcminute solar position;
+  GDAL feature; cross-check against PVGIS.
 
 ## Conventions
 

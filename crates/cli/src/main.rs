@@ -7,7 +7,8 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, ValueEnum};
 
 use solarpv_core::grid::{
-    pv_potential, pv_potential_annual, DaySampling, GridConfig, LatitudeMode, Mount,
+    pv_potential, pv_potential_annual, pv_potential_series, DaySampling, GridConfig, LatitudeMode,
+    Mount, WeatherRecord,
 };
 use solarpv_core::irradiance::SkyModel;
 use solarpv_core::pv::PvSystem;
@@ -136,6 +137,65 @@ struct Cli {
     /// Tracker ground coverage ratio (only for `--mount tracker`).
     #[arg(long, default_value_t = 2.0 / 7.0)]
     gcr: f64,
+
+    /// Drive the run from a measured / TMY irradiance CSV instead of clear-sky.
+    /// Header columns: year,month,day,hour,ghi[,dni,dhi,temp_air,wind] (UTC).
+    #[arg(long)]
+    weather: Option<String>,
+
+    /// Cadence of the weather series in hours (e.g. 1.0 for hourly TMY).
+    #[arg(long, default_value_t = 1.0)]
+    weather_dt: f64,
+}
+
+/// Minimal CSV reader for the weather series. Maps columns by header name;
+/// requires `year,month,day,hour,ghi`, optional `dni,dhi,temp_air,wind`.
+fn read_weather_csv(path: &str) -> Result<Vec<WeatherRecord>> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
+    let mut lines = text.lines().filter(|l| !l.trim().is_empty());
+    let header = lines.next().context("empty weather CSV")?;
+    let cols: Vec<String> = header.split(',').map(|c| c.trim().to_lowercase()).collect();
+    let idx = |name: &str| cols.iter().position(|c| c == name);
+    let need = |name: &str| -> Result<usize> {
+        idx(name).with_context(|| format!("weather CSV missing required column `{name}`"))
+    };
+    let (iy, imo, id, ih, ig) =
+        (need("year")?, need("month")?, need("day")?, need("hour")?, need("ghi")?);
+    let (idni, idhi, itemp, iwind) = (idx("dni"), idx("dhi"), idx("temp_air"), idx("wind"));
+
+    let mut out = Vec::new();
+    for (n, line) in lines.enumerate() {
+        let v: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+        let get = |i: usize| -> Result<f64> {
+            v.get(i)
+                .and_then(|s| s.parse::<f64>().ok())
+                .with_context(|| format!("row {}: bad number in column {i}", n + 2))
+        };
+        let opt = |oi: Option<usize>| -> Option<f64> {
+            oi.and_then(|i| v.get(i)).and_then(|s| s.parse::<f64>().ok())
+        };
+        let when = DateTimeUtc::new(
+            get(iy)? as i32,
+            get(imo)? as u32,
+            get(id)? as u32,
+            get(ih)? as u32,
+            0,
+            0,
+        )
+        .map_err(|e| anyhow::anyhow!(e))?;
+        out.push(WeatherRecord {
+            when,
+            ghi: get(ig)?,
+            dni: opt(idni),
+            dhi: opt(idhi),
+            temp_air: opt(itemp),
+            wind: opt(iwind),
+        });
+    }
+    if out.is_empty() {
+        bail!("weather CSV {path} has no data rows");
+    }
+    Ok(out)
 }
 
 /// Parse `YYYY-MM-DD` into a midnight-UTC datetime.
@@ -189,7 +249,17 @@ fn main() -> Result<()> {
         MountKind::Tracker => Mount::SingleAxis(SingleAxisTracker { gcr: cli.gcr, ..Default::default() }),
     };
 
-    let (res, unit) = if cli.annual {
+    let (res, unit) = if let Some(ref wpath) = cli.weather {
+        let records = read_weather_csv(wpath)?;
+        eprintln!(
+            "Computing PV potential from {} weather records ({:?} sky, dt={} h)…",
+            records.len(), cli.sky, cli.weather_dt
+        );
+        let r = pv_potential_series(&dem, &cfg, &records, cli.weather_dt)
+            .map_err(|e| anyhow::anyhow!(e))?;
+        eprintln!("Integrated {} daylight records.", r.sun_steps);
+        (r, "period")
+    } else if cli.annual {
         let sampling = if cli.day_stride == 0 {
             DaySampling::MonthlyRepresentative
         } else {
