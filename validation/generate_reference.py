@@ -183,10 +183,36 @@ def build_tracking():
     return cases
 
 
+def build_spa():
+    """NREL SPA reference (pvlib.solarposition.spa_python, default delta_t=67,
+    pressure=101325 Pa, temperature=12 C) across the year, for validating the
+    Rust spa module to sub-arcminute accuracy."""
+    cases = []
+    times = pd.date_range("2026-01-01 00:00", "2026-12-28 21:00", freq="37h", tz="UTC")
+    sp = pvlib.solarposition.spa_python(
+        times, LAT, LON, altitude=ALT, pressure=101325.0, temperature=12.0, delta_t=67.0,
+    )
+    for ts in times:
+        zen = float(sp["apparent_zenith"][ts])
+        if zen >= 90.0:
+            continue  # below horizon: azimuth ill-defined
+        cases.append({
+            "utc": {"year": ts.year, "month": ts.month, "day": ts.day,
+                    "hour": ts.hour, "minute": ts.minute, "second": ts.second},
+            "lat": LAT, "lon": LON, "altitude": ALT,
+            "apparent_zenith": zen,
+            "zenith": float(sp["zenith"][ts]),
+            "azimuth": float(sp["azimuth"][ts]),
+            "apparent_elevation": float(sp["apparent_elevation"][ts]),
+        })
+    return cases
+
+
 def main():
     samples = build_samples()
     annual_point = build_annual_point()
     tracking = build_tracking()
+    spa_cases = build_spa()
     out = {
         "meta": {
             "source": "pvlib " + pvlib.__version__,
@@ -197,6 +223,7 @@ def main():
         "samples": samples,
         "annual_point": annual_point,
         "tracking": tracking,
+        "spa": spa_cases,
     }
     path = pathlib.Path(__file__).with_name("reference.json")
     path.write_text(json.dumps(out, indent=2))

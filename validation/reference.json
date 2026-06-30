@@ -1677,5 +1677,2013 @@
       "surface_azimuth": 153.49720879388914,
       "aoi": 18.199375006793574
     }
+  ],
+  "spa": [
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 2,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 50.32282996449837,
+      "zenith": 50.343093372432115,
+      "azimuth": 101.35214117668761,
+      "apparent_elevation": 39.67717003550163
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 5,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 23.351532799650613,
+      "zenith": 23.358796493164064,
+      "azimuth": 93.92566626767723,
+      "apparent_elevation": 66.64846720034939
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 8,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 4.060971169563501,
+      "zenith": 4.062140238483309,
+      "azimuth": 280.9393028133698,
+      "apparent_elevation": 85.9390288304365
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 11,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 31.388326162203512,
+      "zenith": 31.398597300552296,
+      "azimuth": 265.6465268069697,
+      "apparent_elevation": 58.61167383779649
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 14,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 58.54946243246607,
+      "zenith": 58.57687715359275,
+      "azimuth": 258.42323397979015,
+      "apparent_elevation": 31.45053756753393
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 17,
+        "hour": 23,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 84.92642206846683,
+      "zenith": 85.08922501784733,
+      "azimuth": 249.69644640808724,
+      "apparent_elevation": 5.073577931533167
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 19,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 65.95795079102413,
+      "zenith": 65.99535597215325,
+      "azimuth": 102.88489833883574,
+      "apparent_elevation": 24.042049208975865
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 22,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 39.04408101826138,
+      "zenith": 39.05773316206257,
+      "azimuth": 93.14756359316186,
+      "apparent_elevation": 50.95591898173862
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 25,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 12.018131123511239,
+      "zenith": 12.021699192858406,
+      "azimuth": 72.03988267980435,
+      "apparent_elevation": 77.98186887648876
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 28,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 17.33329874695154,
+      "zenith": 17.338542988607927,
+      "azimuth": 283.2989155754948,
+      "apparent_elevation": 72.66670125304846
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 1,
+        "day": 31,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 44.90569165907264,
+      "zenith": 44.92246034184178,
+      "azimuth": 268.31376460745315,
+      "apparent_elevation": 45.09430834092736
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 3,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 72.47675172900526,
+      "zenith": 72.52909908768936,
+      "azimuth": 259.26618365214676,
+      "apparent_elevation": 17.52324827099475
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 5,
+        "hour": 11,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 81.52996122686773,
+      "zenith": 81.63534791167396,
+      "azimuth": 103.73363054842531,
+      "apparent_elevation": 8.47003877313227
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 8,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 54.670897845312105,
+      "zenith": 54.69458712300947,
+      "azimuth": 92.37088290246976,
+      "apparent_elevation": 35.329102154687895
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 11,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 27.60605036593303,
+      "zenith": 27.614852002558415,
+      "azimuth": 75.5823064353392,
+      "apparent_elevation": 62.39394963406697
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 14,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 10.416705259964772,
+      "zenith": 10.41978231383564,
+      "azimuth": 346.5488549307608,
+      "apparent_elevation": 79.58329474003523
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 17,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 32.89201192873964,
+      "zenith": 32.90289960399412,
+      "azimuth": 284.3501262547351,
+      "apparent_elevation": 57.10798807126036
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 20,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 60.70976531955279,
+      "zenith": 60.73962480272202,
+      "azimuth": 270.40579643057214,
+      "apparent_elevation": 29.29023468044721
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 23,
+        "hour": 23,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 88.39157486260831,
+      "zenith": 88.72746497771173,
+      "azimuth": 260.16017424992447,
+      "apparent_elevation": 1.6084251373916856
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 25,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 70.19125974302807,
+      "zenith": 70.23734544729139,
+      "azimuth": 91.58682216085236,
+      "apparent_elevation": 19.808740256971927
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 2,
+        "day": 28,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 43.12981643351548,
+      "zenith": 43.14557953600278,
+      "azimuth": 76.31037890545502,
+      "apparent_elevation": 46.87018356648452
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 3,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 19.99445028343635,
+      "zenith": 20.000568454477218,
+      "azimuth": 37.007074696282075,
+      "apparent_elevation": 70.00554971656365
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 6,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 24.819315154539524,
+      "zenith": 24.827097428741098,
+      "azimuth": 312.18359500519296,
+      "apparent_elevation": 65.18068484546048
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 9,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 50.306682690375474,
+      "zenith": 50.32693454780463,
+      "azimuth": 284.323312813627,
+      "apparent_elevation": 39.693317309624526
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 12,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 78.24899320258066,
+      "zenith": 78.32674925369405,
+      "azimuth": 271.65240335469036,
+      "apparent_elevation": 11.751006797419342
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 14,
+        "hour": 11,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 85.4612427093385,
+      "zenith": 85.63878501370444,
+      "azimuth": 90.7958531467549,
+      "apparent_elevation": 4.538757290661486
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 17,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 58.51313777776675,
+      "zenith": 58.54051392449816,
+      "azimuth": 76.54360911479347,
+      "apparent_elevation": 31.48686222223325
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 20,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 34.05818905004435,
+      "zenith": 34.0695692673078,
+      "azimuth": 51.10965446019338,
+      "apparent_elevation": 55.94181094995565
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 23,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 24.587373806919487,
+      "zenith": 24.595073344844593,
+      "azimuth": 349.43006330751643,
+      "apparent_elevation": 65.41262619308051
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 26,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 42.22771411755148,
+      "zenith": 42.24298827345978,
+      "azimuth": 302.41652535647336,
+      "apparent_elevation": 47.77228588244852
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 3,
+        "day": 29,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 68.50896894686107,
+      "zenith": 68.55123123069892,
+      "azimuth": 283.9359044220524,
+      "apparent_elevation": 21.491031053138933
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 3,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 73.72459778134927,
+      "zenith": 73.7810384419951,
+      "azimuth": 76.67999582074214,
+      "apparent_elevation": 16.275402218650733
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 6,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 48.69576037334786,
+      "zenith": 48.71489714731657,
+      "azimuth": 57.402826509071076,
+      "apparent_elevation": 41.30423962665214
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 9,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 32.07622718600077,
+      "zenith": 32.08677788445578,
+      "azimuth": 17.688639604206173,
+      "apparent_elevation": 57.92377281399923
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 12,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 37.828884832180385,
+      "zenith": 37.84195581891899,
+      "azimuth": 325.0636031433913,
+      "apparent_elevation": 52.171115167819615
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 15,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 59.80770968849146,
+      "zenith": 59.83651078456657,
+      "azimuth": 297.6898673211798,
+      "apparent_elevation": 30.192290311508543
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 18,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 86.17435964104926,
+      "zenith": 86.37589024752727,
+      "azimuth": 283.64966780772005,
+      "apparent_elevation": 3.8256403589507353
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 20,
+        "hour": 11,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 88.51125529466962,
+      "zenith": 88.85890939875367,
+      "azimuth": 76.87621843933243,
+      "apparent_elevation": 1.4887447053303788
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 23,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 63.36646027543233,
+      "zenith": 63.39980494048815,
+      "azimuth": 61.40968088820665,
+      "apparent_elevation": 26.633539724567672
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 26,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 43.227395678241365,
+      "zenith": 43.24321251924343,
+      "azimuth": 34.35094166845238,
+      "apparent_elevation": 46.772604321758635
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 4,
+        "day": 29,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 38.1716761973186,
+      "zenith": 38.184909175299936,
+      "azimuth": 349.5191782043058,
+      "apparent_elevation": 51.8283238026814
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 2,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 52.70568069337544,
+      "zenith": 52.72773865357627,
+      "azimuth": 313.5588353498665,
+      "apparent_elevation": 37.29431930662456
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 5,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 76.24768867944924,
+      "zenith": 76.31445081311479,
+      "azimuth": 294.8274035393045,
+      "apparent_elevation": 13.75231132055076
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 10,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 77.90039222366597,
+      "zenith": 77.97599927801988,
+      "azimuth": 64.65249713990556,
+      "apparent_elevation": 12.09960777633403
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 13,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 55.68792245376686,
+      "zenith": 55.71251804730824,
+      "azimuth": 45.075663438298875,
+      "apparent_elevation": 34.31207754623314
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 16,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 42.92562393371139,
+      "zenith": 42.941275129123525,
+      "azimuth": 11.249949895517034,
+      "apparent_elevation": 47.07437606628861
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 19,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 47.88683436924328,
+      "zenith": 47.90543738837173,
+      "azimuth": 331.81926624480656,
+      "apparent_elevation": 42.11316563075672
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 22,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 66.63729336095153,
+      "zenith": 66.6758974126018,
+      "azimuth": 306.69249511848864,
+      "apparent_elevation": 23.362706639048472
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 5,
+        "day": 30,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 68.58766700532559,
+      "zenith": 68.6300958667046,
+      "azimuth": 53.15074567221478,
+      "apparent_elevation": 21.41233299467441
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 2,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 50.67655605124898,
+      "zenith": 50.69707444113798,
+      "azimuth": 28.493587161803816,
+      "apparent_elevation": 39.32344394875102
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 5,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 46.00247820912227,
+      "zenith": 46.01989900465822,
+      "azimuth": 351.8225211101045,
+      "apparent_elevation": 43.99752179087773
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 8,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 57.829068004345636,
+      "zenith": 57.85573198154646,
+      "azimuth": 319.9910586543718,
+      "apparent_elevation": 32.170931995654364
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 11,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 78.9706271235932,
+      "zenith": 79.05321402573166,
+      "azimuth": 301.1150016720002,
+      "apparent_elevation": 11.029372876406796
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 16,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 81.53361379641449,
+      "zenith": 81.63904140412674,
+      "azimuth": 60.15008586329492,
+      "apparent_elevation": 8.46638620358552
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 19,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 60.11877855308127,
+      "zenith": 60.14793823231648,
+      "azimuth": 42.128711773932594,
+      "apparent_elevation": 29.881221446918733
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 22,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 47.32797723969918,
+      "zenith": 47.34622100725629,
+      "azimuth": 11.90534078224323,
+      "apparent_elevation": 42.67202276030082
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 25,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 50.38232367493409,
+      "zenith": 50.40262970674275,
+      "azimuth": 335.5655940306844,
+      "apparent_elevation": 39.61767632506591
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 6,
+        "day": 28,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 67.15365713572393,
+      "zenith": 67.19321575446082,
+      "azimuth": 310.06361606940453,
+      "apparent_elevation": 22.84634286427607
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 1,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 89.8140304009747,
+      "zenith": 90.34855738815068,
+      "azimuth": 295.0167027880091,
+      "apparent_elevation": 0.18596959902530263
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 6,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 70.42192394007256,
+      "zenith": 70.46858065380398,
+      "azimuth": 53.52178370073972,
+      "apparent_elevation": 19.57807605992744
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 9,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 51.55155239462098,
+      "zenith": 51.572718101577955,
+      "azimuth": 30.337043445245513,
+      "apparent_elevation": 38.44844760537902
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 12,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 45.0993955713283,
+      "zenith": 45.11627762098905,
+      "azimuth": 354.00298857716643,
+      "apparent_elevation": 44.9006044286717
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 15,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 55.67606508286993,
+      "zenith": 55.70064984478921,
+      "azimuth": 320.3500276125418,
+      "apparent_elevation": 34.32393491713007
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 18,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 76.52733123923545,
+      "zenith": 76.59545207115556,
+      "azimuth": 299.9716530228114,
+      "apparent_elevation": 13.472668760764543
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 23,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 81.09175837280594,
+      "zenith": 81.19244383290317,
+      "azimuth": 63.77517246645118,
+      "apparent_elevation": 8.90824162719406
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 26,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 57.99552096569293,
+      "zenith": 58.022355781357895,
+      "azimuth": 46.4273598115941,
+      "apparent_elevation": 32.00447903430707
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 7,
+        "day": 29,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 42.89253793739508,
+      "zenith": 42.90817106906421,
+      "azimuth": 14.87069923112449,
+      "apparent_elevation": 47.10746206260492
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 1,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 45.04561879358409,
+      "zenith": 45.062469294066524,
+      "azimuth": 333.4531410164211,
+      "apparent_elevation": 44.95438120641591
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 4,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 62.77024519652739,
+      "zenith": 62.802754818386376,
+      "azimuth": 305.2107780976968,
+      "apparent_elevation": 27.22975480347261
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 7,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 86.84933541711447,
+      "zenith": 87.07978861398702,
+      "azimuth": 288.9907728120053,
+      "apparent_elevation": 3.1506645828855255
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 12,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 65.96379835729391,
+      "zenith": 66.00121359481366,
+      "azimuth": 60.3963263595075,
+      "apparent_elevation": 24.03620164270609
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 15,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 44.33786780297271,
+      "zenith": 44.354308450927235,
+      "azimuth": 36.1185749165395,
+      "apparent_elevation": 45.66213219702729
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 18,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 36.25400895916902,
+      "zenith": 36.266354256738076,
+      "azimuth": 351.6718949065483,
+      "apparent_elevation": 53.74599104083098
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 21,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 49.05472274278004,
+      "zenith": 49.07410180540487,
+      "azimuth": 311.66725708495494,
+      "apparent_elevation": 40.94527725721996
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 24,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 72.35763455220808,
+      "zenith": 72.40961895305125,
+      "azimuth": 290.45065777183135,
+      "apparent_elevation": 17.642365447791914
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 8,
+        "day": 29,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 74.91128737880963,
+      "zenith": 74.97219090360404,
+      "azimuth": 72.86073382468214,
+      "apparent_elevation": 15.088712621190364
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 1,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 49.2205921467464,
+      "zenith": 49.24008433204825,
+      "azimuth": 55.32729436612789,
+      "apparent_elevation": 40.7794078532536
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 4,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 31.192047134724312,
+      "zenith": 31.202239250510672,
+      "azimuth": 16.933225110435387,
+      "apparent_elevation": 58.80795286527569
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 7,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 35.696184731343216,
+      "zenith": 35.70827992789412,
+      "azimuth": 321.30838512432996,
+      "apparent_elevation": 54.303815268656784
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 10,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 57.591971771868565,
+      "zenith": 57.618395052694225,
+      "azimuth": 291.990949800821,
+      "apparent_elevation": 32.408028228131435
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 13,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 83.94714055107536,
+      "zenith": 84.08819193912818,
+      "azimuth": 276.37008613580537,
+      "apparent_elevation": 6.052859448924638
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 15,
+        "hour": 11,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 84.39178863765761,
+      "zenith": 84.54199512314726,
+      "azimuth": 84.47753234273983,
+      "apparent_elevation": 5.608211362342382
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 18,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 56.75515395346663,
+      "zenith": 56.780751652226705,
+      "azimuth": 71.50280147271911,
+      "apparent_elevation": 33.24484604653337
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 21,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 31.972347971177257,
+      "zenith": 31.98285618921667,
+      "azimuth": 45.65475655305727,
+      "apparent_elevation": 58.02765202882274
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 24,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 23.64820963932104,
+      "zenith": 23.655577213196324,
+      "azimuth": 339.6714953212374,
+      "apparent_elevation": 66.35179036067896
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 27,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 42.68505665085954,
+      "zenith": 42.700576939316,
+      "azimuth": 294.0747539108417,
+      "apparent_elevation": 47.31494334914046
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 9,
+        "day": 30,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 69.02920877805354,
+      "zenith": 69.07259341273068,
+      "azimuth": 275.75256816782064,
+      "apparent_elevation": 20.970791221946453
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 5,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 66.09900423674952,
+      "zenith": 66.13665324192571,
+      "azimuth": 84.98579944758887,
+      "apparent_elevation": 23.900995763250485
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 8,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 38.474762227427924,
+      "zenith": 38.48813969172043,
+      "azimuth": 69.47780172981885,
+      "apparent_elevation": 51.525237772572076
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 11,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 16.714956934398586,
+      "zenith": 16.720001817038934,
+      "azimuth": 19.934767431605223,
+      "apparent_elevation": 73.28504306560141
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 14,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 27.69161468898821,
+      "zenith": 27.700448411624762,
+      "azimuth": 297.98211385793036,
+      "apparent_elevation": 62.30838531101179
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 17,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 53.87004108353874,
+      "zenith": 53.893047442015494,
+      "azimuth": 275.05511433094944,
+      "apparent_elevation": 36.12995891646126
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 20,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 81.06899611736344,
+      "zenith": 81.16944816909174,
+      "azimuth": 262.1746767587918,
+      "apparent_elevation": 8.931003882636563
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 22,
+        "hour": 11,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 76.61015574888889,
+      "zenith": 76.67868883870354,
+      "azimuth": 96.6137304505358,
+      "apparent_elevation": 13.38984425111112
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 25,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 48.626503017805724,
+      "zenith": 48.64559343657408,
+      "azimuth": 86.1307977238439,
+      "apparent_elevation": 41.373496982194276
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 28,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 21.27080517346512,
+      "zenith": 21.27735270989649,
+      "azimuth": 66.20009905897524,
+      "apparent_elevation": 68.72919482653488
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 10,
+        "day": 31,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 12.94270696233147,
+      "zenith": 12.946561095159865,
+      "azimuth": 310.65722538533055,
+      "apparent_elevation": 77.05729303766853
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 3,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 38.548484582864205,
+      "zenith": 38.56189737315776,
+      "azimuth": 274.2622010449757,
+      "apparent_elevation": 51.451515417135795
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 6,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 65.76527440167209,
+      "zenith": 65.80235069310257,
+      "azimuth": 261.89089164020317,
+      "apparent_elevation": 24.234725598327906
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 8,
+        "hour": 10,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 87.6642466180961,
+      "zenith": 87.94150180128528,
+      "azimuth": 107.20601308700526,
+      "apparent_elevation": 2.3357533819038965
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 11,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 60.73475891453466,
+      "zenith": 60.7646485455483,
+      "azimuth": 97.85947327344104,
+      "apparent_elevation": 29.26524108546534
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 14,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 33.09611163657358,
+      "zenith": 33.10708457569779,
+      "azimuth": 88.52214664995807,
+      "apparent_elevation": 56.90388836342642
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 17,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 6.264009388005945,
+      "zenith": 6.265834138756446,
+      "azimuth": 52.38430687202333,
+      "apparent_elevation": 83.73599061199405
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 20,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 23.07288067348516,
+      "zenith": 23.08004721527024,
+      "azimuth": 273.2701635601091,
+      "apparent_elevation": 66.92711932651484
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 23,
+        "hour": 20,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 50.27130909349516,
+      "zenith": 50.29153567433894,
+      "azimuth": 261.8781990994403,
+      "apparent_elevation": 39.72869090650484
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 26,
+        "hour": 22,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 76.75055119154447,
+      "zenith": 76.81979372214747,
+      "azimuth": 252.4424876325499,
+      "apparent_elevation": 13.249448808455526
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 11,
+        "day": 28,
+        "hour": 11,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 73.88628228979826,
+      "zenith": 73.9432956413782,
+      "azimuth": 106.8145623432178,
+      "apparent_elevation": 16.113717710201744
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 1,
+        "hour": 13,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 47.12999073371489,
+      "zenith": 47.14810902199875,
+      "azimuth": 99.07422474975107,
+      "apparent_elevation": 42.87000926628511
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 4,
+        "hour": 15,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 19.88520648634612,
+      "zenith": 19.89128823304381,
+      "azimuth": 92.16933748062922,
+      "apparent_elevation": 70.11479351365388
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 7,
+        "hour": 17,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 7.486895428523965,
+      "zenith": 7.489086348738169,
+      "azimuth": 271.0243260233943,
+      "apparent_elevation": 82.51310457147603
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 10,
+        "hour": 19,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 34.666249639767656,
+      "zenith": 34.67789200077862,
+      "azimuth": 262.4561753279336,
+      "apparent_elevation": 55.333750360232344
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 13,
+        "hour": 21,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 61.36245534817081,
+      "zenith": 61.39311744058385,
+      "azimuth": 255.18344637616707,
+      "apparent_elevation": 28.637544651829188
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 15,
+        "hour": 10,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 87.44340330503987,
+      "zenith": 87.7063633840485,
+      "azimuth": 114.36774469265936,
+      "apparent_elevation": 2.5565966949601386
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 16,
+        "hour": 23,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 86.83780967017006,
+      "zenith": 87.06770532396419,
+      "azimuth": 245.84155567367225,
+      "apparent_elevation": 3.1621903298299374
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 18,
+        "hour": 12,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 61.96099270223992,
+      "zenith": 61.99242001288086,
+      "azimuth": 105.23393038743694,
+      "apparent_elevation": 28.039007297760076
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 21,
+        "hour": 14,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 35.29049860177854,
+      "zenith": 35.302414071910704,
+      "azimuth": 98.5252106000587,
+      "apparent_elevation": 54.70950139822146
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 24,
+        "hour": 16,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 8.194481469103977,
+      "zenith": 8.196885158931224,
+      "azimuth": 94.5964667067986,
+      "apparent_elevation": 81.80551853089602
+    },
+    {
+      "utc": {
+        "year": 2026,
+        "month": 12,
+        "day": 27,
+        "hour": 18,
+        "minute": 0,
+        "second": 0
+      },
+      "lat": -23.0,
+      "lon": -69.0,
+      "altitude": 2400.0,
+      "apparent_zenith": 19.025302683138932,
+      "zenith": 19.031099421342205,
+      "azimuth": 264.99166531503886,
+      "apparent_elevation": 70.97469731686107
+    }
   ]
 }

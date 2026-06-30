@@ -24,6 +24,9 @@ pub mod error;
 pub mod irradiance;
 pub mod pv;
 pub mod solpos;
+/// NREL Solar Position Algorithm (high-accuracy alternative to [`solpos`]).
+pub mod spa;
+mod spa_tables;
 pub mod tracking;
 
 /// Gridded PV potential over a DEM, reusing SurtGIS terrain rasters.

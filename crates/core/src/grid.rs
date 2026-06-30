@@ -28,7 +28,8 @@ use crate::irradiance::{
     SkyModel,
 };
 use crate::pv::{ac_power, PvSystem};
-use crate::solpos::{solar_ephemeris, solar_position, solar_position_at, DateTimeUtc, Location};
+use crate::solpos::{solar_ephemeris, solar_position, solar_position_at, DateTimeUtc, Location, SolarPosition};
+use crate::spa::{solar_position_spa, SpaParams};
 use crate::tracking::{single_axis, SingleAxisTracker};
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
@@ -84,6 +85,10 @@ pub struct GridConfig {
     pub latitude_mode: LatitudeMode,
     /// How the modules are mounted (fixed to terrain, fixed tilt, or tracking).
     pub mount: Mount,
+    /// Use the NREL SPA for scene-centre solar position when `Some` (highest
+    /// accuracy); `None` uses the faster Michalsky model. Ignored by
+    /// [`LatitudeMode::PerCellGeographic`], which relies on shared ephemerides.
+    pub spa: Option<SpaParams>,
 }
 
 impl GridConfig {
@@ -102,7 +107,16 @@ impl GridConfig {
             horizon: HorizonParams::default(),
             latitude_mode: LatitudeMode::Center,
             mount: Mount::FixedTerrain,
+            spa: None,
         }
+    }
+}
+
+/// Scene-centre solar position using the configured algorithm (SPA or Michalsky).
+fn scene_sun(cfg: &GridConfig, when: DateTimeUtc) -> SolarPosition {
+    match cfg.spa {
+        Some(p) => solar_position_spa(when, cfg.center, &p),
+        None => solar_position(when, cfg.center),
     }
 }
 
@@ -246,7 +260,7 @@ fn day_energies(
             0,
         )?;
         let eph = solar_ephemeris(when);
-        let sun = solar_position(when, cfg.center);
+        let sun = scene_sun(cfg, when);
         if sun.apparent_elevation > 0.0 {
             let ghi = haurwitz_clearsky_ghi(sun.apparent_zenith);
             sun_steps_vec.push(SunStep {
@@ -454,7 +468,7 @@ pub fn pv_potential_series(
     // Build the per-step solar + weather state at the scene centre.
     let mut steps: Vec<SunStep> = Vec::with_capacity(records.len());
     for rec in records {
-        let sun = solar_position(rec.when, cfg.center);
+        let sun = scene_sun(cfg, rec.when);
         if sun.apparent_elevation <= 0.0 || rec.ghi <= 0.0 {
             continue; // night or no irradiance contributes nothing
         }

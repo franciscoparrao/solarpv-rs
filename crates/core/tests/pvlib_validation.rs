@@ -16,6 +16,7 @@ use solarpv_core::{
     },
     pv::{ac_power, pvwatts_ac, pvwatts_dc, sapm_cell_temperature, PvSystem, TempModel, ETA_INV_NOM, ETA_INV_REF},
     solpos::{solar_position, DateTimeUtc, Location},
+    spa::{solar_position_spa, SpaParams},
     tracking::{single_axis, SingleAxisTracker},
 };
 
@@ -147,6 +148,38 @@ fn pv_chain_matches_pvlib() {
         let ac = pvwatts_ac(dc, 1000.0 / 1.1, ETA_INV_NOM, ETA_INV_REF);
         assert_close(ac, f(s, "ac"), 1e-3, 1e-4, "ac");
     }
+}
+
+#[test]
+fn nrel_spa_matches_pvlib_sub_arcminute() {
+    let data = load();
+    let params = SpaParams::default(); // delta_t 67, 101325 Pa, 12 °C, 0.5667°
+    let (mut max_zen, mut max_az) = (0.0_f64, 0.0_f64);
+    for c in data["spa"].as_array().unwrap() {
+        let utc = &c["utc"];
+        let when = DateTimeUtc::new(
+            utc["year"].as_i64().unwrap() as i32,
+            utc["month"].as_u64().unwrap() as u32,
+            utc["day"].as_u64().unwrap() as u32,
+            utc["hour"].as_u64().unwrap() as u32,
+            utc["minute"].as_u64().unwrap() as u32,
+            utc["second"].as_u64().unwrap() as u32,
+        )
+        .unwrap();
+        let loc = Location::new(f(c, "lat"), f(c, "lon")).unwrap();
+        let p = SpaParams { elevation: f(c, "altitude"), ..params };
+        let s = solar_position_spa(when, loc, &p);
+
+        max_zen = max_zen.max((s.apparent_zenith - f(c, "apparent_zenith")).abs());
+        let mut dz = (s.azimuth - f(c, "azimuth")).abs();
+        if dz > 180.0 {
+            dz = 360.0 - dz;
+        }
+        max_az = max_az.max(dz);
+    }
+    // NREL SPA reproduces pvlib to a few arcseconds — far below an arcminute.
+    assert!(max_zen < 0.0005, "max zenith error {max_zen:.6}° (~{:.1} arcsec)", max_zen * 3600.0);
+    assert!(max_az < 0.002, "max azimuth error {max_az:.6}° (~{:.1} arcsec)", max_az * 3600.0);
 }
 
 #[test]

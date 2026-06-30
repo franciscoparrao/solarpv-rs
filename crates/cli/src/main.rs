@@ -146,6 +146,10 @@ struct Cli {
     /// Cadence of the weather series in hours (e.g. 1.0 for hourly TMY).
     #[arg(long, default_value_t = 1.0)]
     weather_dt: f64,
+
+    /// Use the high-accuracy NREL SPA for solar position (default: Michalsky).
+    #[arg(long, default_value_t = false)]
+    spa: bool,
 }
 
 /// Minimal CSV reader for the weather series. Maps columns by header name;
@@ -240,6 +244,9 @@ fn main() -> Result<()> {
     } else {
         LatitudeMode::Center
     };
+    if cli.spa {
+        cfg.spa = Some(solarpv_core::spa::SpaParams { elevation: 0.0, ..Default::default() });
+    }
     cfg.mount = match cli.mount {
         MountKind::Terrain => Mount::FixedTerrain,
         MountKind::Tilt => Mount::FixedTilt {

@@ -17,6 +17,7 @@ point in the Atacama desert (northern Chile):
 | Module | What it does | pvlib oracle |
 |--------|--------------|--------------|
 | `solpos` | Sun position (Michalsky) + angle of incidence | `solarposition.spa_python` (< 0.1° zenith) |
+| `spa` | NREL SPA (Reda & Andreas 2004), high accuracy | `solarposition.spa_python` (< 2 arcsec) |
 | `irradiance` | Erbs decomposition, POA transposition (isotropic / Hay-Davies / Perez), Haurwitz clear-sky | `irradiance.erbs`, `irradiance.get_total_irradiance` |
 | `pv` | SAPM cell temperature, PVWatts DC + inverter, energy integration | `temperature.sapm_cell`, `pvsystem.pvwatts_dc`, `inverter.pvwatts` |
 | `tracking` | Single-axis tracker geometry with backtracking | `tracking.singleaxis` (≤ 1e-4°) |
@@ -99,8 +100,10 @@ python3 validation/generate_reference.py
 - **v0.2** ✅ measured / TMY irradiance series (`--weather tmy.csv`): drive the
   engine from real GHI (+ optional DNI/DHI/temp/wind) instead of clear-sky.
   Feeding back the internal Haurwitz series reproduces the clear-sky path to 1e-6.
-- **v0.2 (next)** detailed losses; NREL SPA for sub-arcminute solar position;
-  GDAL feature; cross-check against PVGIS.
+- **v0.2** ✅ NREL SPA solar position (`--spa`, validated vs pvlib to < 2 arcsec):
+  the high-accuracy alternative to Michalsky, optional per run.
+- **v0.2 (next)** detailed losses (IAM, spectral, soiling); GDAL feature;
+  cross-check against PVGIS.
 
 ## Conventions
 
