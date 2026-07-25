@@ -105,6 +105,13 @@ pub struct GridConfig {
     /// SAPM spectral mismatch modifier applied to the effective irradiance when
     /// `Some`. `None` leaves the irradiance unmodified.
     pub spectral: Option<SpectralLoss>,
+    /// Apply a topographic sky-view factor to the diffuse-sky component.
+    ///
+    /// The SVF is computed from the terrain horizon angles and reduces the
+    /// sky-diffuse irradiance reaching each cell (e.g. in valleys or near
+    /// ridges). Default `false` preserves the unobstructed-sky assumption used
+    /// for pvlib parity.
+    pub apply_sky_view_factor: bool,
 }
 
 impl GridConfig {
@@ -127,6 +134,7 @@ impl GridConfig {
             spa: None,
             iam: None,
             spectral: None,
+            apply_sky_view_factor: false,
         }
     }
 }
@@ -160,6 +168,7 @@ struct SunStep {
 fn step_energy(
     cfg: &GridConfig,
     horizon: &HorizonAngles,
+    svf: Option<&Raster<f64>>,
     r: usize,
     c: usize,
     terrain_tilt: f64,
@@ -190,21 +199,26 @@ fn step_energy(
         cfg.sky_model, tilt, surface_azimuth, decomp, s.zenith, s.azimuth, cfg.albedo,
         s.dni_extra, s.airmass,
     );
+    // Topographic sky-view factor: reduces the visible fraction of the sky dome
+    // and therefore the diffuse-sky component reaching the plane of array.
+    let svf = svf.map_or(1.0, |raster| raster.get(r, c).unwrap_or(1.0).clamp(0.0, 1.0));
+    let sky_diffuse = poa.sky_diffuse * svf;
+    let global = poa.direct + sky_diffuse + poa.ground_diffuse;
     // Reported POA is geometric; IAM reduces only the effective irradiance the
     // cells convert (beam reflection loss), keeping the two quantities distinct.
     let effective = match cfg.iam {
         Some(model) => {
             let aoi = angle_of_incidence(tilt, surface_azimuth, s.zenith, s.azimuth);
-            poa.direct * model.iam(aoi) + poa.sky_diffuse + poa.ground_diffuse
+            poa.direct * model.iam(aoi) + sky_diffuse + poa.ground_diffuse
         }
-        None => poa.global,
+        None => global,
     };
     // SAPM spectral mismatch: pressure-corrected airmass times relative airmass.
     let effective = cfg.spectral.map_or(effective, |sp| {
         let am_abs = s.airmass * (cfg.pressure_pa / 101_325.0);
         effective * sp.factor(am_abs)
     });
-    let e_poa = poa.global * s.dt_hours;
+    let e_poa = global * s.dt_hours;
     let e_ac = ac_power(&cfg.system, effective, s.temp_air, s.wind) * s.dt_hours;
     (e_poa, e_ac)
 }
@@ -228,18 +242,53 @@ struct Terrain {
     slope_rad: Raster<f64>,
     asp_deg: Raster<f64>,
     horizon: HorizonAngles,
+    /// Optional topographic sky-view factor raster (0 = fully obstructed,
+    /// 1 = full hemisphere visible).
+    svf: Option<Raster<f64>>,
 }
 
-fn build_terrain(dem: &Raster<f64>, horizon_params: &HorizonParams) -> Result<Terrain> {
+/// Sky-view factor from horizon angles: `SVF = 1 − mean(sin²(horizon))`.
+///
+/// A flat horizon yields `1.0`; a fully obstructed sky yields `0.0`. The raster
+/// copies the DEM's georeferencing.
+fn compute_sky_view_factor(horizon: &HorizonAngles, dem: &Raster<f64>) -> Raster<f64> {
+    let (rows, cols) = horizon.shape();
+    let n = horizon.directions();
+    let mut data = vec![0.0; rows * cols];
+    for r in 0..rows {
+        for c in 0..cols {
+            let mut sum_sin2 = 0.0;
+            let mut count = 0usize;
+            for d in 0..n {
+                let h = horizon.get(d, r, c);
+                if h.is_finite() {
+                    sum_sin2 += h.sin().powi(2);
+                    count += 1;
+                }
+            }
+            data[r * cols + c] = if count > 0 { 1.0 - sum_sin2 / count as f64 } else { 1.0 };
+        }
+    }
+    let mut raster = Raster::from_vec(data, rows, cols).expect("dimensions match horizon");
+    raster.set_transform(*dem.transform());
+    raster
+}
+
+fn build_terrain(dem: &Raster<f64>, cfg: &GridConfig) -> Result<Terrain> {
     let mut slope_params = SlopeParams::default();
     slope_params.units = SlopeUnits::Radians;
     let slope_rad = slope(dem, slope_params)
         .map_err(|e| Error::Terrain(format!("slope: {e}")))?;
     let asp_deg = aspect(dem, AspectOutput::Degrees)
         .map_err(|e| Error::Terrain(format!("aspect: {e}")))?;
-    let horizon = horizon_angles(dem, horizon_params.clone())
+    let horizon = horizon_angles(dem, cfg.horizon.clone())
         .map_err(|e| Error::Terrain(format!("horizon_angles: {e}")))?;
-    Ok(Terrain { slope_rad, asp_deg, horizon })
+    let svf = if cfg.apply_sky_view_factor {
+        Some(compute_sky_view_factor(&horizon, dem))
+    } else {
+        None
+    };
+    Ok(Terrain { slope_rad, asp_deg, horizon, svf })
 }
 
 /// Build the output rasters (POA, AC and specific yield) from flattened energy
@@ -277,7 +326,8 @@ fn day_energies(
     let (rows, cols) = dem.shape();
     let slope_rad = &terrain.slope_rad;
     let asp_deg = &terrain.asp_deg;
-    let horizon = &terrain.horizon;
+            let horizon = &terrain.horizon;
+            let svf = terrain.svf.as_ref();
 
     let dt_hours = cfg.time_step_minutes as f64 / 60.0;
     let steps = (24 * 60) / cfg.time_step_minutes.max(1);
@@ -339,7 +389,7 @@ fn day_energies(
             match cfg.latitude_mode {
                 LatitudeMode::Center => {
                     for s in &sun_steps_vec {
-                        let (ep, ea) = step_energy(cfg, horizon, r, c, tilt, surface_azimuth, s);
+                        let (ep, ea) = step_energy(cfg, horizon, svf, r, c, tilt, surface_azimuth, s);
                         poa_acc += ep;
                         ac_acc += ea;
                     }
@@ -366,7 +416,7 @@ fn day_energies(
                             wind: cfg.wind,
                             dt_hours,
                         };
-                        let (ep, ea) = step_energy(cfg, horizon, r, c, tilt, surface_azimuth, &s);
+                        let (ep, ea) = step_energy(cfg, horizon, svf, r, c, tilt, surface_azimuth, &s);
                         poa_acc += ep;
                         ac_acc += ea;
                     }
@@ -385,7 +435,7 @@ fn day_energies(
 /// yield (kWh/kWp/day). Reuses SurtGIS `slope`/`aspect`/`horizon_angles`; the
 /// per-cell physics is the same validated point chain used elsewhere.
 pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
-    let terrain = build_terrain(dem, &cfg.horizon)?;
+    let terrain = build_terrain(dem, cfg)?;
     let (energies, sun_steps) = day_energies(dem, cfg, &terrain, cfg.date)?;
     let poa_vec = energies.iter().map(|e| e.0).collect();
     let ac_vec = energies.iter().map(|e| e.1).collect();
@@ -447,7 +497,7 @@ pub fn pv_potential_annual(
     sampling: DaySampling,
 ) -> Result<GridResult> {
     let (rows, cols) = dem.shape();
-    let terrain = build_terrain(dem, &cfg.horizon)?;
+    let terrain = build_terrain(dem, cfg)?;
     let days = sampled_days(cfg.date.year, sampling)?;
 
     let mut poa_tot = vec![0.0f64; rows * cols];
@@ -499,10 +549,11 @@ pub fn pv_potential_series(
     dt_hours: f64,
 ) -> Result<GridResult> {
     let (rows, cols) = dem.shape();
-    let terrain = build_terrain(dem, &cfg.horizon)?;
+    let terrain = build_terrain(dem, cfg)?;
     let slope_rad = &terrain.slope_rad;
     let asp_deg = &terrain.asp_deg;
     let horizon = &terrain.horizon;
+    let svf = terrain.svf.as_ref();
 
     // Build the per-step solar + weather state at the scene centre.
     let mut steps: Vec<SunStep> = Vec::with_capacity(records.len());
@@ -544,7 +595,7 @@ pub fn pv_potential_series(
             let mut poa_acc = 0.0;
             let mut ac_acc = 0.0;
             for s in &steps {
-                let (ep, ea) = step_energy(cfg, horizon, r, c, tilt, surface_azimuth, s);
+                let (ep, ea) = step_energy(cfg, horizon, svf, r, c, tilt, surface_azimuth, s);
                 poa_acc += ep;
                 ac_acc += ea;
             }

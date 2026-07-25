@@ -43,6 +43,19 @@ fn ridge_dem(n: usize) -> Raster<f64> {
     with_transform(Raster::from_vec(data, n, n).unwrap())
 }
 
+/// A tall E–W wall to the North: the northern third is high, the rest is flat
+/// low ground. Cells in the low zone have a high northern horizon.
+fn north_wall_dem(n: usize) -> Raster<f64> {
+    let mut data = vec![0.0; n * n];
+    for r in 0..n {
+        let z = if r < n / 3 { 100.0 } else { 0.0 };
+        for c in 0..n {
+            data[r * n + c] = z;
+        }
+    }
+    with_transform(Raster::from_vec(data, n, n).unwrap())
+}
+
 fn config_on(date: DateTimeUtc) -> GridConfig {
     let center = Location::new(-23.0, -69.0).unwrap();
     let mut cfg = GridConfig::new(center, date);
@@ -310,6 +323,53 @@ fn ridge_specific_yield_is_finite_and_positive_everywhere() {
             assert!(sy.is_finite() && sy >= 0.0, "bad specific yield at ({r},{c}): {sy}");
         }
     }
+}
+
+#[test]
+fn svf_is_neutral_on_flat_terrain() {
+    // On a flat DEM the horizon is ~0 in every direction, so SVF ≈ 1 and the
+    // result should be essentially unchanged.
+    let dem = flat_dem(5);
+    let mut base = winter_config();
+    base.time_step_minutes = 30;
+    let mut with_svf = base.clone();
+    with_svf.apply_sky_view_factor = true;
+
+    let plain = pv_potential(&dem, &base).unwrap();
+    let modded = pv_potential(&dem, &with_svf).unwrap();
+    let (r, c) = (2, 2);
+    let rel = (modded.ac_wh.get(r, c).unwrap() - plain.ac_wh.get(r, c).unwrap()).abs()
+        / plain.ac_wh.get(r, c).unwrap();
+    assert!(rel < 0.01, "flat SVF changed yield by {rel:.4}");
+}
+
+#[test]
+fn svf_reduces_diffuse_yield_in_wall_shadow() {
+    // A high E–W wall to the North blocks a large fraction of the sky dome for
+    // cells in the low southern zone. Enabling SVF lowers the sky-diffuse
+    // component and therefore the AC yield.
+    let n = 15;
+    let dem = north_wall_dem(n);
+    let mut base = winter_config();
+    base.time_step_minutes = 30;
+    base.mount = Mount::FixedTilt { tilt: 0.0, surface_azimuth: 0.0 };
+
+    let mut with_svf = base.clone();
+    with_svf.apply_sky_view_factor = true;
+
+    let plain = pv_potential(&dem, &base).unwrap();
+    let modded = pv_potential(&dem, &with_svf).unwrap();
+
+    // Pick a low-zone cell well south of the wall.
+    let (r, c) = (n - 3, n / 2);
+    assert!(
+        modded.ac_wh.get(r, c).unwrap() < plain.ac_wh.get(r, c).unwrap(),
+        "SVF should reduce AC in wall shadow"
+    );
+    assert!(
+        modded.poa_wh.get(r, c).unwrap() < plain.poa_wh.get(r, c).unwrap(),
+        "SVF should reduce POA in wall shadow"
+    );
 }
 
 #[test]

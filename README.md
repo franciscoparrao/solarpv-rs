@@ -37,6 +37,11 @@ beam shading from the surrounding topography. It produces per-cell POA insolatio
 (Wh/m²/day), AC energy (Wh/day) and specific yield (kWh/kWp/day). Enable with
 `--features terrain`.
 
+Optional `--svf` applies a **topographic sky-view factor** (`SVF = 1 − mean(sin²(horizon))`)
+to the diffuse-sky component, reducing the diffuse irradiance received in valleys
+or near ridges. It is off by default so the default clear-sky path remains
+numerically identical to the pvlib validation.
+
 Optional `--features gdal` switches the GeoTIFF I/O backend to GDAL through
 SurtGIS (`surtgis-core/gdal`) for broader format support; the default native
 backend keeps the engine free of any GDAL dependency.
@@ -74,6 +79,8 @@ Mounting is selectable: `--mount terrain` (default, ground-following),
 `--mount tilt --tilt 25 --surface-azimuth 0` (fixed racks),
 `--mount tracker --gcr 0.3` (horizontal single-axis tracker with backtracking), or
 `--mount dual-axis --max-tilt 90` (full hemispherical dual-axis tracker).
+
+For terrain-aware diffuse reduction add `--svf`.
 
 To use real irradiance instead of clear-sky, pass a CSV with
 `--weather tmy.csv --weather-dt 1.0` (header
@@ -187,6 +194,8 @@ python3 validation/pvgis_check.py
   `surtgis-core/gdal`; default build stays GDAL-free.
 - **v0.2** ✅ cross-check against PVGIS v5.2 documented.
 - **v0.2** ✅ Python bindings (PyO3 / maturin) for the point chain and gridded engine.
+- **v0.3** ✅ topographic sky-view factor (`--svf`) reducing diffuse-sky irradiance
+  in obstructed terrain.
 - **v0.3 (next)** WASM bindings for an interactive browser estimator; publication prep
   (Zenodo + Renewable Energy manuscript).
 

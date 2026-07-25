@@ -197,6 +197,7 @@ mod terrain {
         max_tilt=90.0,
         iam=None,
         spectral=false,
+        svf=false,
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn pv_potential_py(
@@ -225,6 +226,7 @@ mod terrain {
         max_tilt: f64,
         iam: Option<&str>,
         spectral: bool,
+        svf: bool,
     ) -> PyResult<PyObject> {
         Python::with_gil(|py| {
             let dem = read_geotiff::<f64, _>(dem_path, None)
@@ -277,6 +279,7 @@ mod terrain {
             } else {
                 None
             };
+            cfg.apply_sky_view_factor = svf;
 
             let res = pv_potential(&dem, &cfg)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;

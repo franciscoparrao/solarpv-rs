@@ -1,6 +1,6 @@
 # solarpv-rs — Potencial solar fotovoltaico sobre terreno (Rust, "PVGIS lite")
 
-> **Estado:** FUNCIONAL v0.1/v0.2+ (actualizado 2026-07-24). ~4.000 LOC, 48 tests Rust + 7 tests Python. Implementado: posición solar Michalsky + NREL SPA, descomposición Erbs, transposición POA (isotropic/Hay-Davies/Perez), cadena PV (SAPM, PVWatts DC+inversor), tracking single-axis con backtracking + dual-axis ideal, pérdidas IAM + spectral mismatch SAPM, paso grillado sobre DEM (feature `terrain`), TMY/medidas, bindings Python (PyO3/maturin). Feature `gdal` delegado a `surtgis-core/gdal` (I/O con librerías GDAL del sistema, sin dependencia directa de GDAL en este crate). Sin stubs. Validado: paridad con pvlib en Atacama (<0.5% anual); cross-check vs PVGIS v5.2 muestra que solarpv-rs sigue a pvlib (<2% mismo GHI) mientras PVGIS reporta ~37% menos por modelos propietarios de descomposición/atenuación. GAP respecto a la familia: **falta WASM y publicación**. Sin paper (venue: Renewable Energy). Próximo: WASM o preparar publicación (Zenodo + Renewable Energy).
+> **Estado:** FUNCIONAL v0.1/v0.3 (actualizado 2026-07-24). ~4.000 LOC, 50 tests Rust + 7 tests Python. Implementado: posición solar Michalsky + NREL SPA, descomposición Erbs, transposición POA (isotropic/Hay-Davies/Perez), cadena PV (SAPM, PVWatts DC+inversor), tracking single-axis con backtracking + dual-axis ideal, pérdidas IAM + spectral mismatch SAPM, paso grillado sobre DEM (feature `terrain`) con **sky-view factor topográfico** (`--svf`), TMY/medidas, bindings Python (PyO3/maturin). Feature `gdal` delegado a `surtgis-core/gdal` (I/O con librerías GDAL del sistema, sin dependencia directa de GDAL en este crate). Sin stubs. Validado: paridad con pvlib en Atacama (<0.5% anual); cross-check vs PVGIS v5.2 muestra que solarpv-rs sigue a pvlib (<2% mismo GHI) mientras PVGIS reporta ~37% menos por modelos propietarios de descomposición/atenuación. GAP respecto a la familia: **falta WASM y publicación**. Sin paper (venue: Renewable Energy). Próximo: WASM o preparar publicación (Zenodo + Renewable Energy).
 > Familia de motores Rust del autor: SurtGIS, Hydroflux, Smelt, Anvil, Cantus, Criterium.
 > Doc madre: `~/proyectos/ideas-motores-rust.md` (idea K1).
 
@@ -20,6 +20,7 @@ de uso fuerte.
 - [ ] Yield PV (modelo simple temperatura-eficiencia) y energía anual.
 - [x] (v0.2) Series TMY; tracking; pérdidas detalladas.
 - [x] (v0.2+) Tracking dual-axis; feature GDAL.
+- [x] (v0.3) Sky-view factor topográfico para reducción de difusa en terreno obstruido.
 
 ## Arquitectura tentativa
 - `solarpv-core`: geometría solar, modelos de irradiancia y PV.

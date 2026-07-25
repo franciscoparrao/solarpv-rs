@@ -186,6 +186,12 @@ struct Cli {
     #[arg(long, default_value_t = 101325.0)]
     pressure: f64,
 
+    /// Apply the topographic sky-view factor to the diffuse-sky component.
+    /// Off by default to preserve the unobstructed-sky assumption used for
+    /// pvlib parity.
+    #[arg(long, default_value_t = false)]
+    svf: bool,
+
     /// System DC loss fraction (soiling, wiring, mismatch, …). Default 0.14.
     #[arg(long, default_value_t = 0.14)]
     loss: f64,
@@ -295,6 +301,7 @@ fn main() -> Result<()> {
     };
     cfg.pressure_pa = cli.pressure;
     cfg.spectral = if cli.spectral { Some(SpectralLoss::c_si()) } else { None };
+    cfg.apply_sky_view_factor = cli.svf;
     cfg.mount = match cli.mount {
         MountKind::Terrain => Mount::FixedTerrain,
         MountKind::Tilt => Mount::FixedTilt {
