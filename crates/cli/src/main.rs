@@ -11,6 +11,7 @@ use solarpv_core::grid::{
     Mount, WeatherRecord,
 };
 use solarpv_core::irradiance::SkyModel;
+use solarpv_core::losses::SpectralLoss;
 use solarpv_core::pv::PvSystem;
 use solarpv_core::solpos::{DateTimeUtc, Location};
 use solarpv_core::tracking::SingleAxisTracker;
@@ -43,6 +44,8 @@ enum MountKind {
     Tilt,
     /// Horizontal single-axis tracker with backtracking.
     Tracker,
+    /// Dual-axis tracker (follows sun in azimuth and elevation).
+    DualAxis,
 }
 
 /// Incidence-angle-modifier model (CLI flag).
@@ -151,6 +154,11 @@ struct Cli {
     #[arg(long, default_value_t = 2.0 / 7.0)]
     gcr: f64,
 
+    /// Dual-axis tracker maximum tilt from horizontal, degrees (only for
+    /// `--mount dual-axis`). 90 = full hemispherical tracking.
+    #[arg(long, default_value_t = 90.0)]
+    max_tilt: f64,
+
     /// Drive the run from a measured / TMY irradiance CSV instead of clear-sky.
     /// Header columns: year,month,day,hour,ghi[,dni,dhi,temp_air,wind] (UTC).
     #[arg(long)]
@@ -167,6 +175,16 @@ struct Cli {
     /// Incidence-angle-modifier model for angular reflection loss.
     #[arg(long, value_enum, default_value_t = IamKind::None)]
     iam: IamKind,
+
+    /// Apply the SAPM crystalline-silicon spectral mismatch factor to the
+    /// effective irradiance (uses pressure-corrected absolute airmass).
+    #[arg(long, default_value_t = false)]
+    spectral: bool,
+
+    /// Atmospheric pressure in pascals (used for absolute airmass and spectral
+    /// loss; default: sea level 101325 Pa).
+    #[arg(long, default_value_t = 101325.0)]
+    pressure: f64,
 
     /// System DC loss fraction (soiling, wiring, mismatch, …). Default 0.14.
     #[arg(long, default_value_t = 0.14)]
@@ -275,6 +293,8 @@ fn main() -> Result<()> {
         IamKind::MartinRuiz => Some(solarpv_core::losses::IamModel::martin_ruiz()),
         IamKind::Physical => Some(solarpv_core::losses::IamModel::physical()),
     };
+    cfg.pressure_pa = cli.pressure;
+    cfg.spectral = if cli.spectral { Some(SpectralLoss::c_si()) } else { None };
     cfg.mount = match cli.mount {
         MountKind::Terrain => Mount::FixedTerrain,
         MountKind::Tilt => Mount::FixedTilt {
@@ -282,6 +302,7 @@ fn main() -> Result<()> {
             surface_azimuth: cli.surface_azimuth,
         },
         MountKind::Tracker => Mount::SingleAxis(SingleAxisTracker { gcr: cli.gcr, ..Default::default() }),
+        MountKind::DualAxis => Mount::DualAxis(solarpv_core::tracking::DualAxisTracker { max_tilt: cli.max_tilt }),
     };
 
     let (res, unit) = if let Some(ref wpath) = cli.weather {

@@ -142,6 +142,52 @@ pub fn single_axis(
     Some(TrackerOrientation { tracker_theta: theta, surface_tilt, surface_azimuth, aoi })
 }
 
+/// Configuration of a dual-axis tracker.
+///
+/// A dual-axis tracker aims the module normal at the sun: surface azimuth equals
+/// solar azimuth and surface tilt equals solar zenith (the elevation from
+/// horizontal). A `max_tilt` limit caps the tilt, leaving an angle of incidence
+/// equal to the zenith excess when the sun is too high.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DualAxisTracker {
+    /// Maximum surface tilt from horizontal, degrees (≤ 90).
+    pub max_tilt: f64,
+}
+
+impl Default for DualAxisTracker {
+    fn default() -> Self {
+        // Full hemispherical tracking: can point straight up to vertical.
+        Self { max_tilt: 90.0 }
+    }
+}
+
+/// Compute the dual-axis tracker orientation for a sun position.
+///
+/// Returns `None` when the sun is at or below the horizon (`solar_zenith ≥ 90`).
+/// With `max_tilt ≥ solar_zenith` the module normal is aligned with the sun and
+/// the angle of incidence is zero; otherwise `aoi = solar_zenith - max_tilt`.
+pub fn dual_axis(
+    tracker: &DualAxisTracker,
+    solar_zenith: f64,
+    solar_azimuth: f64,
+) -> Option<TrackerOrientation> {
+    if solar_zenith >= 90.0 {
+        return None;
+    }
+    let surface_tilt = solar_zenith.clamp(0.0, tracker.max_tilt);
+    let surface_azimuth = solar_azimuth;
+    let aoi = (solar_zenith - surface_tilt).abs();
+    // tracker_theta is not a meaningful rotation for a full dual-axis mount;
+    // report the elevation tilt as a convention.
+    Some(TrackerOrientation {
+        tracker_theta: surface_tilt,
+        surface_tilt,
+        surface_azimuth,
+        aoi,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,5 +230,25 @@ mod tests {
         )
         .unwrap();
         assert!(bt.tracker_theta.abs() < ideal.tracker_theta.abs(), "bt {} ideal {}", bt.tracker_theta, ideal.tracker_theta);
+    }
+
+    #[test]
+    fn dual_axis_points_at_sun() {
+        let t = dual_axis(&DualAxisTracker::default(), 45.0, 120.0).unwrap();
+        assert!((t.surface_tilt - 45.0).abs() < 1e-9);
+        assert!((t.surface_azimuth - 120.0).abs() < 1e-9);
+        assert!(t.aoi.abs() < 1e-9, "aoi {} should be 0", t.aoi);
+    }
+
+    #[test]
+    fn dual_axis_respects_max_tilt() {
+        let t = dual_axis(&DualAxisTracker { max_tilt: 60.0 }, 80.0, 180.0).unwrap();
+        assert!((t.surface_tilt - 60.0).abs() < 1e-9);
+        assert!((t.aoi - 20.0).abs() < 1e-9, "aoi {} should be 20", t.aoi);
+    }
+
+    #[test]
+    fn dual_axis_night_returns_none() {
+        assert!(dual_axis(&DualAxisTracker::default(), 95.0, 180.0).is_none());
     }
 }

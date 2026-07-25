@@ -16,3 +16,8 @@ solarpv-core = { workspace = true, features = ["terrain"] }
 surtgis-core = { workspace = true }
 clap.workspace = true
 anyhow.workspace = true
+
+[features]
+default = []
+# GDAL-backed I/O through SurtGIS (requires system GDAL libraries).
+gdal = ["solarpv-core/gdal", "surtgis-core/gdal"]

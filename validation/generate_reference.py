@@ -221,12 +221,40 @@ def build_losses():
     return {"aois": aois, "iam": iam, "pvwatts_losses_pct": pvwatts_losses}
 
 
+def build_spectral():
+    """SAPM spectral mismatch factor f1 vs absolute airmass, for validating
+    losses::SpectralLoss against pvlib.spectrum.spectral_factor_sapm.
+    """
+    # Use the same crystalline-silicon module the Rust side defaults to.
+    module = pvlib.pvsystem.retrieve_sam("SandiaMod")["Canadian_Solar_CS5P_220M___2009_"]
+    ams = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0]
+    # Absolute airmass at the Atacama point (2400 m, ~775 hPa).
+    pressure = pvlib.atmosphere.alt2pres(ALT)
+    am_abs = [float(pvlib.atmosphere.get_absolute_airmass(am, pressure)) for am in ams]
+    factors = [
+        float(pvlib.spectrum.spectral_factor_sapm(am, module))
+        for am in am_abs
+    ]
+    return {
+        "module": "Canadian_Solar_CS5P_220M___2009_",
+        "coefficients": {
+            "A0": float(module["A0"]), "A1": float(module["A1"]),
+            "A2": float(module["A2"]), "A3": float(module["A3"]),
+            "A4": float(module["A4"]),
+        },
+        "pressure_pa": float(pressure),
+        "airmass_absolute": am_abs,
+        "factors": factors,
+    }
+
+
 def main():
     samples = build_samples()
     annual_point = build_annual_point()
     tracking = build_tracking()
     spa_cases = build_spa()
     losses = build_losses()
+    spectral = build_spectral()
     out = {
         "meta": {
             "source": "pvlib " + pvlib.__version__,
@@ -239,6 +267,7 @@ def main():
         "tracking": tracking,
         "spa": spa_cases,
         "losses": losses,
+        "spectral": spectral,
     }
     path = pathlib.Path(__file__).with_name("reference.json")
     path.write_text(json.dumps(out, indent=2))

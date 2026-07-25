@@ -1,0 +1,19 @@
+{
+  "location": {
+    "lat": -23.0,
+    "lon": -69.0,
+    "year": 2020
+  },
+  "pvgis": {
+    "annual_ac_wh": 1608020.58,
+    "annual_poa_wh": 2088728.57
+  },
+  "pvlib_same_ghi": {
+    "annual_ac_wh": 2180293.3642255086,
+    "annual_poa_wh": 2831333.587801825
+  },
+  "solarpv": {
+    "annual_ac_wh": 2196439.8261291906,
+    "annual_poa_wh": 2868999.698279639
+  }
+}

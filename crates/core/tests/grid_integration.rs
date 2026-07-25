@@ -11,9 +11,9 @@ use solarpv_core::grid::{
     Mount, WeatherRecord,
 };
 use solarpv_core::irradiance::haurwitz_clearsky_ghi;
-use solarpv_core::losses::IamModel;
+use solarpv_core::losses::{IamModel, SpectralLoss};
 use solarpv_core::solpos::{solar_position, DateTimeUtc, Location};
-use solarpv_core::tracking::SingleAxisTracker;
+use solarpv_core::tracking::{DualAxisTracker, SingleAxisTracker};
 use surtgis_core::{GeoTransform, Raster};
 
 const CELL: f64 = 30.0;
@@ -278,6 +278,29 @@ fn single_axis_tracker_outyields_fixed_horizontal() {
 }
 
 #[test]
+fn dual_axis_tracker_outyields_single_axis_on_flat_plane() {
+    // Ideal dual-axis tracking should harvest more annual energy than a
+    // single-axis tracker because it follows both azimuth and elevation.
+    let dem = flat_dem(5);
+    let center = Location::new(-23.0, -69.0).unwrap();
+    let date = DateTimeUtc::new(2026, 1, 1, 0, 0, 0).unwrap();
+    let mut cfg = GridConfig::new(center, date);
+    cfg.time_step_minutes = 30;
+
+    let mut single = cfg.clone();
+    single.mount = Mount::SingleAxis(SingleAxisTracker::default());
+    let mut dual = cfg.clone();
+    dual.mount = Mount::DualAxis(DualAxisTracker::default());
+
+    let yr_single = pv_potential_annual(&dem, &single, DaySampling::MonthlyRepresentative).unwrap();
+    let yr_dual = pv_potential_annual(&dem, &dual, DaySampling::MonthlyRepresentative).unwrap();
+
+    let sy_single = yr_single.specific_yield.get(2, 2).unwrap();
+    let sy_dual = yr_dual.specific_yield.get(2, 2).unwrap();
+    assert!(sy_dual > sy_single * 1.05, "dual-axis {sy_dual} should exceed single-axis {sy_single}");
+}
+
+#[test]
 fn ridge_specific_yield_is_finite_and_positive_everywhere() {
     let dem = ridge_dem(7);
     let res = pv_potential(&dem, &summer_config()).unwrap();
@@ -287,4 +310,33 @@ fn ridge_specific_yield_is_finite_and_positive_everywhere() {
             assert!(sy.is_finite() && sy >= 0.0, "bad specific yield at ({r},{c}): {sy}");
         }
     }
+}
+
+#[test]
+fn spectral_loss_reduces_yield_at_altitude() {
+    // Atacama pressure (~756 hPa) increases absolute airmass and the c-Si SAPM
+    // spectral factor is < 1 around noon, so enabling it lowers AC yield while
+    // reported geometric POA stays unchanged.
+    let dem = ridge_dem(5);
+    let center = Location::new(-23.0, -69.0).unwrap();
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+    let mut base = GridConfig::new(center, date);
+    base.time_step_minutes = 30;
+    base.pressure_pa = 75_626.0;
+
+    let mut with_spectral = base.clone();
+    with_spectral.spectral = Some(SpectralLoss::c_si());
+
+    let plain = pv_potential(&dem, &base).unwrap();
+    let modded = pv_potential(&dem, &with_spectral).unwrap();
+
+    let (r, c) = (2, 2);
+    assert!(
+        modded.ac_wh.get(r, c).unwrap() < plain.ac_wh.get(r, c).unwrap(),
+        "spectral loss should reduce AC energy"
+    );
+    assert!(
+        (modded.poa_wh.get(r, c).unwrap() - plain.poa_wh.get(r, c).unwrap()).abs() < 1e-6,
+        "geometric POA should be unchanged by spectral loss"
+    );
 }

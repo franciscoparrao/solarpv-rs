@@ -14,6 +14,8 @@ default = []
 serde = ["dep:serde"]
 # Reuse SurtGIS terrain/horizon rasters for the gridded step.
 terrain = ["dep:surtgis-core", "dep:surtgis-algorithms", "dep:rayon"]
+# GDAL-backed I/O through SurtGIS (requires system GDAL libraries).
+gdal = ["terrain", "surtgis-core/gdal"]
 
 [dependencies]
 thiserror.workspace = true

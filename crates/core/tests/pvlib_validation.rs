@@ -15,7 +15,7 @@ use solarpv_core::{
         Decomposition, SkyModel,
     },
     pv::{ac_power, pvwatts_ac, pvwatts_dc, sapm_cell_temperature, PvSystem, TempModel, ETA_INV_NOM, ETA_INV_REF},
-    losses::{IamModel, PvLosses},
+    losses::{IamModel, PvLosses, SpectralLoss},
     solpos::{solar_position, DateTimeUtc, Location},
     spa::{solar_position_spa, SpaParams},
     tracking::{single_axis, SingleAxisTracker},
@@ -207,6 +207,31 @@ fn pvwatts_loss_breakdown_matches_pvlib() {
     let data = load();
     let want = f(&data["losses"], "pvwatts_losses_pct");
     assert_close(PvLosses::default().total_percent(), want, 1e-6, 1e-6, "pvwatts losses %");
+}
+
+#[test]
+fn spectral_factor_matches_pvlib() {
+    let data = load();
+    let sp = &data["spectral"];
+    let coeffs = &sp["coefficients"];
+    let model = SpectralLoss::new(
+        f(coeffs, "A0"), f(coeffs, "A1"), f(coeffs, "A2"), f(coeffs, "A3"), f(coeffs, "A4"),
+    );
+    let ams: Vec<f64> = sp["airmass_absolute"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_f64().unwrap())
+        .collect();
+    let want: Vec<f64> = sp["factors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_f64().unwrap())
+        .collect();
+    for (i, &am) in ams.iter().enumerate() {
+        assert_close(model.factor(am), want[i], 1e-6, 1e-6, &format!("spectral factor @ AM={am}"));
+    }
 }
 
 #[test]

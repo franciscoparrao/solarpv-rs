@@ -147,6 +147,50 @@ impl PvLosses {
     }
 }
 
+/// SAPM spectral mismatch factor `f₁` (airmass-dependent short-circuit-current
+/// modifier). Mirrors `pvlib.spectrum.spectral_factor_sapm`.
+///
+/// The factor is a fourth-order polynomial in absolute (pressure-corrected)
+/// air mass:
+///
+/// `f₁ = A₀ + A₁·AM_abs + A₂·AM_abs² + A₃·AM_abs³ + A₄·AM_abs⁴`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SpectralLoss {
+    /// SAPM coefficients `A₀` through `A₄`.
+    pub a: [f64; 5],
+}
+
+impl SpectralLoss {
+    /// Build a model from the five SAPM coefficients.
+    pub const fn new(a0: f64, a1: f64, a2: f64, a3: f64, a4: f64) -> Self {
+        Self { a: [a0, a1, a2, a3, a4] }
+    }
+
+    /// Coefficients for a typical crystalline-silicon module
+    /// (Canadian Solar CS5P_220M, from the Sandia module database).
+    pub const fn c_si() -> Self {
+        Self::new(0.928_385, 0.068_093, -0.015_773_8, 0.001_660_6, -0.000_069_3)
+    }
+
+    /// Spectral mismatch factor for absolute air mass.
+    ///
+    /// `airmass_absolute` is the pressure-corrected air mass (relative air mass
+    /// multiplied by `pressure / 101325`). Returns `0` for `NaN` inputs, matching
+    /// pvlib's convention for invalid airmass.
+    pub fn factor(&self, airmass_absolute: f64) -> f64 {
+        if airmass_absolute.is_nan() || airmass_absolute.is_infinite() {
+            return 0.0;
+        }
+        let x = airmass_absolute;
+        self.a[0]
+            + self.a[1] * x
+            + self.a[2] * x * x
+            + self.a[3] * x * x * x
+            + self.a[4] * x * x * x * x
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -169,5 +213,30 @@ mod tests {
     #[test]
     fn pvwatts_losses_default_is_about_14_percent() {
         assert!((PvLosses::default().total_percent() - 14.08).abs() < 0.05);
+    }
+
+    #[test]
+    fn spectral_factor_matches_pvlib_at_am1() {
+        let s = SpectralLoss::c_si();
+        // pvlib.spectrum.spectral_factor_sapm(1.0, module=Canadian_Solar_CS5P_220M)
+        let f = s.factor(1.0);
+        assert!((f - 0.982_295_5).abs() < 1e-6, "f1 at AM=1 = {f}");
+    }
+
+    #[test]
+    fn spectral_factor_is_finite_and_reasonable() {
+        let s = SpectralLoss::c_si();
+        for am in [1.0, 1.5, 2.0, 3.0, 4.0, 5.0, 6.0] {
+            let f = s.factor(am);
+            assert!(f.is_finite() && f > 0.8 && f < 1.1, "f1 at AM={am} = {f}");
+        }
+    }
+
+    #[test]
+    fn spectral_factor_matches_pvlib_sample() {
+        let s = SpectralLoss::c_si();
+        // pvlib.spectrum.spectral_factor_sapm(1.5, module=Canadian_Solar_CS5P_220M)
+        let f = s.factor(1.5);
+        assert!((f - 1.000_287_143_75).abs() < 1e-6, "f1 at AM=1.5 = {f}");
     }
 }

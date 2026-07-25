@@ -27,14 +27,14 @@ use crate::irradiance::{
     erbs, extra_radiation, haurwitz_clearsky_ghi, poa_irradiance, relative_airmass, Decomposition,
     SkyModel,
 };
-use crate::losses::IamModel;
+use crate::losses::{IamModel, SpectralLoss};
 use crate::pv::{ac_power, PvSystem};
 use crate::solpos::{
     angle_of_incidence, solar_ephemeris, solar_position, solar_position_at, DateTimeUtc, Location,
     SolarPosition,
 };
 use crate::spa::{solar_position_spa, SpaParams};
-use crate::tracking::{single_axis, SingleAxisTracker};
+use crate::tracking::{dual_axis, single_axis, DualAxisTracker, SingleAxisTracker};
 
 const DEG: f64 = std::f64::consts::PI / 180.0;
 
@@ -49,6 +49,9 @@ pub enum Mount {
     /// Single-axis tracker; the orientation follows the sun each time step and
     /// the terrain only contributes horizon shading.
     SingleAxis(SingleAxisTracker),
+    /// Dual-axis tracker; the module normal tracks the sun at every time step.
+    /// Terrain slope/aspect are ignored for orientation but still shade beam.
+    DualAxis(DualAxisTracker),
 }
 
 /// How the latitude/longitude used for solar geometry is chosen across the grid.
@@ -83,6 +86,9 @@ pub struct GridConfig {
     pub temp_air: f64,
     /// Wind speed (m/s), uniform over the scene for v0.1.
     pub wind: f64,
+    /// Local atmospheric pressure (Pa), used to convert relative airmass to
+    /// absolute airmass for the spectral-loss model. Default: sea level.
+    pub pressure_pa: f64,
     /// Horizon-angle parameters (search radius in cells, number of directions).
     pub horizon: HorizonParams,
     /// How latitude/longitude is chosen per cell for solar geometry.
@@ -96,11 +102,14 @@ pub struct GridConfig {
     /// Incidence-angle modifier applied to the beam component when `Some`
     /// (angular reflection loss). `None` leaves the beam unmodified.
     pub iam: Option<IamModel>,
+    /// SAPM spectral mismatch modifier applied to the effective irradiance when
+    /// `Some`. `None` leaves the irradiance unmodified.
+    pub spectral: Option<SpectralLoss>,
 }
 
 impl GridConfig {
     /// Sensible defaults for a small DEM: 15-minute steps, Perez sky, desert
-    /// albedo, the 1 kW reference system, 18 °C / 2 m·s⁻¹.
+    /// albedo, the 1 kW reference system, 18 °C / 2 m·s⁻¹, sea-level pressure.
     pub fn new(center: Location, date: DateTimeUtc) -> Self {
         Self {
             center,
@@ -111,11 +120,13 @@ impl GridConfig {
             system: PvSystem::reference_1kw(),
             temp_air: 18.0,
             wind: 2.0,
+            pressure_pa: 101_325.0,
             horizon: HorizonParams::default(),
             latitude_mode: LatitudeMode::Center,
             mount: Mount::FixedTerrain,
             spa: None,
             iam: None,
+            spectral: None,
         }
     }
 }
@@ -162,6 +173,10 @@ fn step_energy(
             Some(o) => (o.surface_tilt, o.surface_azimuth),
             None => return (0.0, 0.0),
         },
+        Mount::DualAxis(tracker) => match dual_axis(&tracker, s.zenith, s.azimuth) {
+            Some(o) => (o.surface_tilt, o.surface_azimuth),
+            None => return (0.0, 0.0),
+        },
     };
     // Beam shading: cell is in cast shadow when the sun sits below the terrain
     // horizon at its azimuth.
@@ -184,6 +199,11 @@ fn step_energy(
         }
         None => poa.global,
     };
+    // SAPM spectral mismatch: pressure-corrected airmass times relative airmass.
+    let effective = cfg.spectral.map_or(effective, |sp| {
+        let am_abs = s.airmass * (cfg.pressure_pa / 101_325.0);
+        effective * sp.factor(am_abs)
+    });
     let e_poa = poa.global * s.dt_hours;
     let e_ac = ac_power(&cfg.system, effective, s.temp_air, s.wind) * s.dt_hours;
     (e_poa, e_ac)
@@ -211,7 +231,9 @@ struct Terrain {
 }
 
 fn build_terrain(dem: &Raster<f64>, horizon_params: &HorizonParams) -> Result<Terrain> {
-    let slope_rad = slope(dem, SlopeParams { units: SlopeUnits::Radians, ..Default::default() })
+    let mut slope_params = SlopeParams::default();
+    slope_params.units = SlopeUnits::Radians;
+    let slope_rad = slope(dem, slope_params)
         .map_err(|e| Error::Terrain(format!("slope: {e}")))?;
     let asp_deg = aspect(dem, AspectOutput::Degrees)
         .map_err(|e| Error::Terrain(format!("aspect: {e}")))?;
