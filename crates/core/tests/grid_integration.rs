@@ -486,3 +486,51 @@ fn per_cell_on_untagged_projected_dem_errors() {
     };
     assert!(msg.contains("no CRS"), "expected a CRS-missing error, got: {msg}");
 }
+
+/// Tiling must reproduce the whole-DEM result exactly. Uses a DEM with a real
+/// horizon-casting wall and SVF enabled, so the halo genuinely matters: if a
+/// tile dropped the surrounding relief, shaded interior cells would change.
+#[test]
+fn tiled_matches_untiled_on_terrain_with_horizon() {
+    let n = 24;
+    let dem = north_wall_dem(n); // northern third is a 100 m wall
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+    let mut base = config_on(date);
+    base.time_step_minutes = 30;
+    base.horizon.radius = 6; // rays reach the wall from the low zone
+    base.apply_sky_view_factor = true;
+
+    let max_rel = |a: &solarpv_core::grid::GridResult, b: &solarpv_core::grid::GridResult| {
+        let mut m = 0.0f64;
+        for i in 0..n * n {
+            let (x, y) = (
+                a.specific_yield.get(i / n, i % n).unwrap_or(0.0),
+                b.specific_yield.get(i / n, i % n).unwrap_or(0.0),
+            );
+            let denom = x.abs().max(1e-9);
+            m = m.max((x - y).abs() / denom);
+        }
+        m
+    };
+
+    // Single day.
+    let untiled = pv_potential(&dem, &base).unwrap();
+    let mut tiled_cfg = base.clone();
+    tiled_cfg.tile = Some(8); // 3×3 interior tiles, halo 6
+    let tiled = pv_potential(&dem, &tiled_cfg).unwrap();
+    assert!(
+        max_rel(&untiled, &tiled) < 1e-9,
+        "tiled single-day should match untiled, max rel diff {}",
+        max_rel(&untiled, &tiled)
+    );
+
+    // Annual.
+    let untiled_a = pv_potential_annual(&dem, &base, DaySampling::MonthlyRepresentative).unwrap();
+    let tiled_a =
+        pv_potential_annual(&dem, &tiled_cfg, DaySampling::MonthlyRepresentative).unwrap();
+    assert!(
+        max_rel(&untiled_a, &tiled_a) < 1e-9,
+        "tiled annual should match untiled, max rel diff {}",
+        max_rel(&untiled_a, &tiled_a)
+    );
+}

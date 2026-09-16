@@ -194,6 +194,13 @@ struct Cli {
     #[arg(long, default_value_t = false)]
     svf: bool,
 
+    /// Process the DEM in square tiles of this many interior cells per side,
+    /// to bound memory on large scenes (the horizon array dominates). Tiles are
+    /// grown by the horizon radius as a halo, so the result is identical to an
+    /// untiled run. 0 (default) computes the whole DEM at once.
+    #[arg(long, default_value_t = 0)]
+    tile: usize,
+
     /// System DC loss fraction (soiling, wiring, mismatch, …). Default 0.14.
     #[arg(long, default_value_t = 0.14)]
     loss: f64,
@@ -304,6 +311,7 @@ fn main() -> Result<()> {
     cfg.pressure_pa = cli.pressure;
     cfg.spectral = if cli.spectral { Some(SpectralLoss::c_si()) } else { None };
     cfg.apply_sky_view_factor = cli.svf;
+    cfg.tile = if cli.tile > 0 { Some(cli.tile) } else { None };
     cfg.mount = match cli.mount {
         MountKind::Terrain => Mount::FixedTerrain,
         MountKind::Tilt => Mount::FixedTilt {
