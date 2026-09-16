@@ -8,7 +8,7 @@ use clap::{Parser, ValueEnum};
 
 use solarpv_core::grid::{
     pv_potential, pv_potential_annual, pv_potential_series, DaySampling, GridConfig, LatitudeMode,
-    Mount, WeatherRecord,
+    Mount, ObservedGhi, WeatherRecord,
 };
 use solarpv_core::irradiance::SkyModel;
 use solarpv_core::losses::SpectralLoss;
@@ -59,6 +59,14 @@ enum IamKind {
     MartinRuiz,
     /// Physical Fresnel model (n = 1.526).
     Physical,
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
+enum GhiUnit {
+    /// kWh/m²/day (Explorador Solar default).
+    Kwh,
+    /// Wh/m²/day.
+    Wh,
 }
 
 /// Terrain photovoltaic potential from a DEM ("PVGIS lite").
@@ -201,6 +209,23 @@ struct Cli {
     #[arg(long, default_value_t = 0)]
     tile: usize,
 
+    /// Rescale the clear-sky model to an observed annual mean-daily GHI raster
+    /// (e.g. the Explorador Solar), aligned cell-for-cell to the DEM. Captures
+    /// clouds / coastal camanchaca the clear-sky model cannot. See `--ghi-unit`.
+    #[arg(long)]
+    ghi: Option<String>,
+
+    /// Rescale to twelve monthly mean-daily GHI rasters (better for seasonal
+    /// clouds). Give a path pattern containing `MM`, replaced by 01..12, e.g.
+    /// `ghi_MM.tif`. Mutually exclusive with `--ghi`.
+    #[arg(long)]
+    ghi_monthly: Option<String>,
+
+    /// Units of the `--ghi` / `--ghi-monthly` rasters: `kwh` (kWh/m²/day, the
+    /// Explorador Solar default) or `wh` (Wh/m²/day).
+    #[arg(long, value_enum, default_value_t = GhiUnit::Kwh)]
+    ghi_unit: GhiUnit,
+
     /// System DC loss fraction (soiling, wiring, mismatch, …). Default 0.14.
     #[arg(long, default_value_t = 0.14)]
     loss: f64,
@@ -268,6 +293,60 @@ fn parse_date(s: &str) -> Result<DateTimeUtc> {
     DateTimeUtc::new(year, month, day, 0, 0, 0).map_err(|e| anyhow::anyhow!(e))
 }
 
+/// Load the observed-GHI rasters (annual or 12 monthly), convert to Wh/m²/day,
+/// and check they align with the DEM. Returns `None` when no `--ghi*` was given.
+fn load_observed_ghi(
+    ghi: &Option<String>,
+    ghi_monthly: &Option<String>,
+    unit: GhiUnit,
+    dem: &surtgis_core::Raster<f64>,
+) -> Result<Option<ObservedGhi>> {
+    if ghi.is_some() && ghi_monthly.is_some() {
+        anyhow::bail!("--ghi and --ghi-monthly are mutually exclusive");
+    }
+    let factor = match unit {
+        GhiUnit::Kwh => 1000.0, // kWh/m²/day → Wh/m²/day
+        GhiUnit::Wh => 1.0,
+    };
+    let (dr, dc) = dem.shape();
+    let load = |path: &str| -> Result<surtgis_core::Raster<f64>> {
+        let mut r = read_geotiff::<f64, _>(path, None)
+            .with_context(|| format!("reading GHI raster {path}"))?;
+        let (rr, rc) = r.shape();
+        if (rr, rc) != (dr, dc) {
+            anyhow::bail!(
+                "GHI raster {path} is {rr}×{rc} but the DEM is {dr}×{dc}; \
+                 they must align cell-for-cell"
+            );
+        }
+        if factor != 1.0 {
+            for v in r.data_mut().iter_mut() {
+                if v.is_finite() {
+                    *v *= factor;
+                }
+            }
+        }
+        Ok(r)
+    };
+    if let Some(p) = ghi {
+        return Ok(Some(ObservedGhi::Annual(load(p)?)));
+    }
+    if let Some(pat) = ghi_monthly {
+        if !pat.contains("MM") {
+            anyhow::bail!("--ghi-monthly pattern must contain 'MM' (replaced by 01..12), got {pat}");
+        }
+        let mut months = Vec::with_capacity(12);
+        for m in 1..=12 {
+            months.push(load(&pat.replace("MM", &format!("{m:02}")))?);
+        }
+        let arr: [surtgis_core::Raster<f64>; 12] = months
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("expected 12 monthly GHI rasters"))?;
+        return Ok(Some(ObservedGhi::Monthly(Box::new(arr))));
+    }
+    Ok(None)
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -312,6 +391,11 @@ fn main() -> Result<()> {
     cfg.spectral = if cli.spectral { Some(SpectralLoss::c_si()) } else { None };
     cfg.apply_sky_view_factor = cli.svf;
     cfg.tile = if cli.tile > 0 { Some(cli.tile) } else { None };
+    cfg.observed_ghi = load_observed_ghi(&cli.ghi, &cli.ghi_monthly, cli.ghi_unit, &dem)?;
+    if cfg.observed_ghi.is_some() {
+        let src = cli.ghi.as_deref().or(cli.ghi_monthly.as_deref()).unwrap_or("");
+        println!("  rescaling clear-sky to observed GHI ({src})");
+    }
     cfg.mount = match cli.mount {
         MountKind::Terrain => Mount::FixedTerrain,
         MountKind::Tilt => Mount::FixedTilt {

@@ -126,6 +126,41 @@ pub struct GridConfig {
     /// interior cells still see the surrounding topography; results are
     /// identical to the untiled run.
     pub tile: Option<usize>,
+    /// Rescale the clear-sky model to an observed mean-daily GHI raster (e.g.
+    /// the Explorador Solar), capturing clouds and the coastal *camanchaca* that
+    /// the clear-sky model cannot. `None` keeps the pure clear-sky potential.
+    ///
+    /// Per cell and day the horizontal clear-sky GHI is scaled by a clearness
+    /// index `k = observed / clear-sky` before Erbs decomposition and
+    /// transposition, so the diurnal shape and terrain shading are preserved
+    /// while the integrated horizontal energy matches the observation.
+    pub observed_ghi: Option<ObservedGhi>,
+}
+
+/// Observed mean-daily GHI (Wh/m²/day), aligned cell-for-cell to the DEM, used
+/// to rescale the clear-sky model (see [`GridConfig::observed_ghi`]).
+#[derive(Debug, Clone)]
+pub enum ObservedGhi {
+    /// One raster of annual mean-daily GHI; the same clearness index scales
+    /// every day.
+    Annual(Raster<f64>),
+    /// Twelve rasters of monthly mean-daily GHI (index 0 = January); each
+    /// sampled day is scaled by its own month, capturing the seasonal cloud
+    /// cycle. Preferred where seasonal variation matters.
+    Monthly(Box<[Raster<f64>; 12]>),
+}
+
+impl ObservedGhi {
+    /// Observed mean-daily GHI (Wh/m²/day) for a cell in a given month, or
+    /// `None` where the raster has no data there.
+    fn daily(&self, month: u32, r: usize, c: usize) -> Option<f64> {
+        let raster = match self {
+            ObservedGhi::Annual(x) => x,
+            ObservedGhi::Monthly(m) => &m[((month.max(1) - 1) % 12) as usize],
+        };
+        let v = raster.get(r, c).ok()?;
+        (v.is_finite() && v > 0.0).then_some(v)
+    }
 }
 
 impl GridConfig {
@@ -150,6 +185,7 @@ impl GridConfig {
             spectral: None,
             apply_sky_view_factor: false,
             tile: None,
+            observed_ghi: None,
         }
     }
 }
@@ -164,6 +200,7 @@ fn scene_sun(cfg: &GridConfig, when: DateTimeUtc) -> SolarPosition {
 
 /// Precomputed solar state plus the irradiance/weather for one time step
 /// (scene geometry and the decomposition shared by every cell).
+#[derive(Clone, Copy)]
 struct SunStep {
     zenith: f64,
     azimuth: f64,
@@ -171,6 +208,9 @@ struct SunStep {
     az_rad: f64,
     airmass: f64,
     dni_extra: f64,
+    /// Horizontal clear-sky GHI (W/m²) driving `base`, kept so the step can be
+    /// rescaled by an observed clearness index without recomputing geometry.
+    clearsky_ghi: f64,
     base: Decomposition,
     temp_air: f64,
     wind: f64,
@@ -236,6 +276,33 @@ fn step_energy(
     let e_poa = global * s.dt_hours;
     let e_ac = ac_power(&cfg.system, effective, s.temp_air, s.wind) * s.dt_hours;
     (e_poa, e_ac)
+}
+
+/// [`step_energy`] with an optional observed clearness index `k`: when `Some`,
+/// the clear-sky GHI is scaled by `k` and re-decomposed (Erbs) before
+/// transposition, so an observed GHI raster drives the energy while the clear-
+/// sky diurnal shape and terrain shading are preserved.
+#[allow(clippy::too_many_arguments)]
+fn step_energy_scaled(
+    cfg: &GridConfig,
+    horizon: &HorizonAngles,
+    svf: Option<&Raster<f64>>,
+    r: usize,
+    c: usize,
+    terrain_tilt: f64,
+    terrain_azimuth: f64,
+    s: &SunStep,
+    doy: u32,
+    k: Option<f64>,
+) -> (f64, f64) {
+    match k {
+        None => step_energy(cfg, horizon, svf, r, c, terrain_tilt, terrain_azimuth, s),
+        Some(k) => {
+            let mut scaled = *s;
+            scaled.base = erbs(k * s.clearsky_ghi, s.zenith, doy);
+            step_energy(cfg, horizon, svf, r, c, terrain_tilt, terrain_azimuth, &scaled)
+        }
+    }
 }
 
 /// Per-cell results of a gridded PV-potential run.
@@ -453,6 +520,7 @@ fn day_energies(
                 az_rad: sun.azimuth * DEG,
                 airmass: relative_airmass(sun.apparent_zenith),
                 dni_extra,
+                clearsky_ghi: ghi,
                 base: erbs(ghi, sun.apparent_zenith, doy),
                 temp_air: cfg.temp_air,
                 wind: cfg.wind,
@@ -472,6 +540,13 @@ fn day_energies(
         LatitudeMode::Center => None,
     };
 
+    // Observed-GHI rescaling context: the month this day belongs to and, for
+    // Center mode, the scene-centre clear-sky daily GHI (Wh/m²/day) that the
+    // observed value is divided by to get each cell's clearness index.
+    let observed = cfg.observed_ghi.as_ref();
+    let month = date.month;
+    let cs_daily_centre: f64 = sun_steps_vec.iter().map(|s| s.clearsky_ghi * s.dt_hours).sum();
+
     // Per-cell accumulation, parallelised over the flattened grid. Each cell is
     // independent; slope/aspect/horizon are read-only and Sync.
     let energies: Vec<(f64, f64)> = (0..rows * cols)
@@ -479,18 +554,35 @@ fn day_energies(
         .map(|idx| {
             let (r, c) = (idx / cols, idx % cols);
 
+            // Observed GHI (if configured): a cell with no coverage yields nothing.
+            let observed_daily = match observed {
+                Some(o) => match o.daily(month, r, c) {
+                    Some(v) => Some(v),
+                    None => return (0.0, 0.0),
+                },
+                None => None,
+            };
+
             // Border cells (Horn's method undefined) come back as NaN → flat.
             let raw_tilt = slope_rad.get(r, c).unwrap_or(0.0);
             let tilt = if raw_tilt.is_finite() { raw_tilt.to_degrees() } else { 0.0 };
             let a = asp_deg.get(r, c).unwrap_or(-1.0);
             let surface_azimuth = if a.is_finite() && a >= 0.0 { a } else { 0.0 };
 
+            // Clearness index k = observed / clear-sky daily horizontal GHI.
+            let clearness = |cs_daily: f64| -> Option<f64> {
+                observed_daily.map(|obs| if cs_daily > 0.0 { obs / cs_daily } else { 0.0 })
+            };
+
             let mut poa_acc = 0.0;
             let mut ac_acc = 0.0;
             match cfg.latitude_mode {
                 LatitudeMode::Center => {
+                    let k = clearness(cs_daily_centre);
                     for s in &sun_steps_vec {
-                        let (ep, ea) = step_energy(cfg, horizon, svf, r, c, tilt, surface_azimuth, s);
+                        let (ep, ea) = step_energy_scaled(
+                            cfg, horizon, svf, r, c, tilt, surface_azimuth, s, doy, k,
+                        );
                         poa_acc += ep;
                         ac_acc += ea;
                     }
@@ -501,27 +593,56 @@ fn day_energies(
                     let loc = latlon_source
                         .expect("per-cell source resolved for PerCellGeographic")
                         .lat_lon(&transform, c, r);
-                    for eph in &ephemerides {
-                        let sun = solar_position_at(eph, loc);
-                        if sun.apparent_elevation <= 0.0 {
-                            continue;
-                        }
+                    let build_step = |sun: &SolarPosition| -> SunStep {
                         let ghi = haurwitz_clearsky_ghi(sun.apparent_zenith);
-                        let s = SunStep {
+                        SunStep {
                             zenith: sun.apparent_zenith,
                             azimuth: sun.azimuth,
                             elev_rad: sun.apparent_elevation * DEG,
                             az_rad: sun.azimuth * DEG,
                             airmass: relative_airmass(sun.apparent_zenith),
                             dni_extra,
+                            clearsky_ghi: ghi,
                             base: erbs(ghi, sun.apparent_zenith, doy),
                             temp_air: cfg.temp_air,
                             wind: cfg.wind,
                             dt_hours,
-                        };
-                        let (ep, ea) = step_energy(cfg, horizon, svf, r, c, tilt, surface_azimuth, &s);
-                        poa_acc += ep;
-                        ac_acc += ea;
+                        }
+                    };
+                    if observed_daily.is_none() {
+                        // Fast path: no rescaling, stream steps without buffering.
+                        for eph in &ephemerides {
+                            let sun = solar_position_at(eph, loc);
+                            if sun.apparent_elevation <= 0.0 {
+                                continue;
+                            }
+                            let s = build_step(&sun);
+                            let (ep, ea) =
+                                step_energy(cfg, horizon, svf, r, c, tilt, surface_azimuth, &s);
+                            poa_acc += ep;
+                            ac_acc += ea;
+                        }
+                    } else {
+                        // Rescaling needs this cell's clear-sky daily GHI, so
+                        // buffer the day's steps, then apply k.
+                        let mut steps: Vec<SunStep> = Vec::with_capacity(ephemerides.len());
+                        for eph in &ephemerides {
+                            let sun = solar_position_at(eph, loc);
+                            if sun.apparent_elevation <= 0.0 {
+                                continue;
+                            }
+                            steps.push(build_step(&sun));
+                        }
+                        let cs_daily: f64 =
+                            steps.iter().map(|s| s.clearsky_ghi * s.dt_hours).sum();
+                        let k = clearness(cs_daily);
+                        for s in &steps {
+                            let (ep, ea) = step_energy_scaled(
+                                cfg, horizon, svf, r, c, tilt, surface_azimuth, s, doy, k,
+                            );
+                            poa_acc += ep;
+                            ac_acc += ea;
+                        }
                     }
                 }
             }
@@ -798,6 +919,9 @@ pub fn pv_potential_series(
             az_rad: sun.azimuth * DEG,
             airmass: relative_airmass(z),
             dni_extra: extra_radiation(doy),
+            // Measured GHI already drives this path; observed-GHI rescaling does
+            // not apply, but keep the field consistent with the decomposition.
+            clearsky_ghi: rec.ghi,
             base,
             temp_air: rec.temp_air.unwrap_or(cfg.temp_air),
             wind: rec.wind.unwrap_or(cfg.wind),

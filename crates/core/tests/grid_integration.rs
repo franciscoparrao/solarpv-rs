@@ -534,3 +534,83 @@ fn tiled_matches_untiled_on_terrain_with_horizon() {
         max_rel(&untiled_a, &tiled_a)
     );
 }
+
+/// Feeding an observed GHI exactly equal to the model's own clear-sky daily GHI
+/// must leave the result unchanged (clearness index k = 1). This pins the
+/// rescaling to an exact identity at k = 1, using the same public formulas the
+/// engine integrates internally.
+#[test]
+fn observed_ghi_identity_when_equal_to_clearsky() {
+    let n = 5;
+    let dem = flat_dem(n);
+    let date = DateTimeUtc::new(2026, 3, 21, 0, 0, 0).unwrap();
+    let mut cfg = config_on(date); // Center mode, 30-min steps, Michalsky
+    cfg.center = Location::new(-23.0, -69.0).unwrap();
+
+    // Replicate the engine's scene-centre clear-sky daily GHI (Wh/m²/day).
+    let step = cfg.time_step_minutes;
+    let steps = (24 * 60) / step;
+    let dt_hours = step as f64 / 60.0;
+    let mut cs_daily = 0.0;
+    for i in 0..steps {
+        let m = i * step;
+        let when = DateTimeUtc::new(2026, 3, 21, m / 60, m % 60, 0).unwrap();
+        let sun = solar_position(when, cfg.center);
+        if sun.apparent_elevation > 0.0 {
+            cs_daily += haurwitz_clearsky_ghi(sun.apparent_zenith) * dt_hours;
+        }
+    }
+
+    let unscaled = pv_potential(&dem, &cfg).unwrap();
+
+    let obs = with_transform(Raster::from_vec(vec![cs_daily; n * n], n, n).unwrap());
+    cfg.observed_ghi = Some(solarpv_core::grid::ObservedGhi::Annual(obs));
+    let scaled = pv_potential(&dem, &cfg).unwrap();
+
+    for i in 0..n * n {
+        let (u, s) = (
+            unscaled.specific_yield.get(i / n, i % n).unwrap_or(0.0),
+            scaled.specific_yield.get(i / n, i % n).unwrap_or(0.0),
+        );
+        assert!(
+            (u - s).abs() / u.max(1e-9) < 1e-9,
+            "k=1 rescaling must be identity: {u} vs {s}"
+        );
+    }
+}
+
+/// The observed raster modulates yield spatially and skips cells with no data:
+/// a higher observed GHI yields more, and a nodata cell yields exactly zero.
+#[test]
+fn observed_ghi_modulates_and_skips_nodata() {
+    let n = 6;
+    let dem = flat_dem(n);
+    let date = DateTimeUtc::new(2026, 1, 1, 0, 0, 0).unwrap();
+    let cfg0 = config_on(date);
+
+    // Columns 0–1 high (6000), 2–3 low (3000), 4–5 no data (NaN).
+    let mut vals = vec![0.0; n * n];
+    for r in 0..n {
+        for c in 0..n {
+            vals[r * n + c] = match c {
+                0 | 1 => 6000.0,
+                2 | 3 => 3000.0,
+                _ => f64::NAN,
+            };
+        }
+    }
+    let obs = with_transform(Raster::from_vec(vals, n, n).unwrap());
+    let mut cfg = cfg0.clone();
+    cfg.observed_ghi = Some(solarpv_core::grid::ObservedGhi::Annual(obs));
+    let res = pv_potential_annual(&dem, &cfg, DaySampling::MonthlyRepresentative).unwrap();
+
+    let high = res.specific_yield.get(2, 0).unwrap();
+    let low = res.specific_yield.get(2, 2).unwrap();
+    let nodata = res.specific_yield.get(2, 5).unwrap();
+    assert!(high > low, "higher observed GHI must yield more: {high} vs {low}");
+    assert!(low > 0.0, "covered cells must yield something: {low}");
+    assert_eq!(nodata, 0.0, "nodata cells must yield exactly zero, got {nodata}");
+    // POA is near-linear in GHI, so the 2:1 observed ratio maps to roughly 2:1.
+    let ratio = high / low;
+    assert!((1.6..=2.4).contains(&ratio), "yield ratio {ratio} should bracket 2.0");
+}
