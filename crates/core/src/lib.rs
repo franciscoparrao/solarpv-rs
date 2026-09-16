@@ -30,6 +30,10 @@ pub mod spa;
 mod spa_tables;
 pub mod tracking;
 
+/// Coordinate helpers (UTM ↔ geographic) for the gridded engine.
+#[cfg(feature = "terrain")]
+pub mod crs;
+
 /// Gridded PV potential over a DEM, reusing SurtGIS terrain rasters.
 #[cfg(feature = "terrain")]
 pub mod grid;

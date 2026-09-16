@@ -122,8 +122,10 @@ struct Cli {
     #[arg(long, default_value_t = 36)]
     horizon_dirs: usize,
 
-    /// Use per-cell latitude/longitude from the DEM transform (requires a
-    /// geographic lon/lat DEM, e.g. EPSG:4326). Default: scene-centre only.
+    /// Use per-cell latitude/longitude from the DEM georeferencing (a
+    /// geographic lon/lat DEM, or a WGS84 UTM DEM whose easting/northing are
+    /// inverted analytically, e.g. EPSG:32719). A projected DEM with no CRS is
+    /// rejected. Default: scene-centre only.
     #[arg(long, default_value_t = false)]
     per_cell_lat: bool,
 

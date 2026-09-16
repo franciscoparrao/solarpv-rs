@@ -22,6 +22,7 @@ use surtgis_algorithms::terrain::{
 };
 use surtgis_core::Raster;
 
+use crate::crs::{inverse_utm, utm_zone_from_epsg};
 use crate::error::{Error, Result};
 use crate::irradiance::{
     erbs, extra_radiation, haurwitz_clearsky_ghi, poa_irradiance, relative_airmass, Decomposition,
@@ -61,9 +62,15 @@ pub enum LatitudeMode {
     /// approximation). Fastest; correct for scenes spanning a fraction of a
     /// degree.
     Center,
-    /// Per-cell latitude/longitude read from the DEM's geographic transform
-    /// (requires a lon/lat DEM, e.g. EPSG:4326). Use for scenes large enough
-    /// that latitude varies meaningfully across the grid.
+    /// Per-cell latitude/longitude derived from the DEM's georeferencing. Use
+    /// for scenes large enough that latitude varies meaningfully across the
+    /// grid.
+    ///
+    /// The DEM may be geographic (lon/lat degrees, e.g. EPSG:4326) or a WGS84
+    /// UTM grid (e.g. EPSG:32719), in which case easting/northing are inverted
+    /// to latitude/longitude analytically. A projected DEM whose CRS is unknown
+    /// or non-UTM is rejected rather than misread as degrees — see
+    /// [`crate::crs`].
     PerCellGeographic,
 }
 
@@ -315,6 +322,85 @@ fn build_result(
     }
 }
 
+/// How a DEM cell's `(col, row)` becomes a `(latitude, longitude)` in degrees
+/// for [`LatitudeMode::PerCellGeographic`].
+///
+/// Resolved once per run from the DEM's CRS (falling back to the coordinate
+/// magnitudes when no CRS is tagged), so the hot per-cell loop only does the
+/// arithmetic.
+#[derive(Debug, Clone, Copy)]
+enum LatLonSource {
+    /// The transform is already geographic: `(x, y) = (lon, lat)` in degrees.
+    GeographicDegrees,
+    /// The transform is a WGS84 UTM grid; invert easting/northing.
+    Utm { zone: u8, north: bool },
+}
+
+impl LatLonSource {
+    #[inline]
+    fn lat_lon(self, transform: &surtgis_core::GeoTransform, col: usize, row: usize) -> Location {
+        let (x, y) = transform.pixel_to_geo(col, row);
+        match self {
+            LatLonSource::GeographicDegrees => Location { latitude: y, longitude: x },
+            LatLonSource::Utm { zone, north } => {
+                let (lat, lon) = inverse_utm(x, y, zone, north);
+                Location { latitude: lat, longitude: lon }
+            }
+        }
+    }
+}
+
+/// Decide how to turn DEM coordinates into latitude/longitude for per-cell solar
+/// geometry, or fail with a clear message when the DEM cannot support it.
+///
+/// A projected UTM DEM (the usual case for terrain work) is inverted to
+/// lat/lon; a geographic DEM is used directly. A projected DEM whose CRS is
+/// missing or non-UTM is **rejected** rather than silently read as degrees —
+/// which is the bug that turned UTM northings into millions-of-degrees
+/// "latitudes" and produced a per-row-striped yield map.
+fn resolve_latlon_source(dem: &Raster<f64>) -> Result<LatLonSource> {
+    if let Some(crs) = dem.crs() {
+        if crs.is_geographic() {
+            return Ok(LatLonSource::GeographicDegrees);
+        }
+        if let Some(epsg) = crs.epsg() {
+            if let Some((zone, north)) = utm_zone_from_epsg(epsg) {
+                return Ok(LatLonSource::Utm { zone, north });
+            }
+            return Err(Error::Terrain(format!(
+                "per-cell latitude needs a geographic or WGS84 UTM DEM; EPSG:{epsg} is projected \
+                 but not UTM. Reproject the DEM to its UTM zone, or use scene-centre latitude \
+                 (LatitudeMode::Center)."
+            )));
+        }
+        // CRS present but neither geographic nor EPSG-coded: fall through to the
+        // coordinate-magnitude check below.
+    }
+
+    // No usable CRS. Infer from the corner coordinates: real lon/lat stay within
+    // ±360 / ±90, so anything larger is projected metres we cannot interpret
+    // without knowing the projection — refuse instead of guessing.
+    let t = dem.transform();
+    let (rows, cols) = dem.shape();
+    let looks_geographic = [(0, 0), (cols - 1, 0), (0, rows - 1), (cols - 1, rows - 1)]
+        .iter()
+        .all(|&(c, r)| {
+            let (x, y) = t.pixel_to_geo(c, r);
+            x.abs() <= 360.0 && y.abs() <= 90.0
+        });
+    if looks_geographic {
+        Ok(LatLonSource::GeographicDegrees)
+    } else {
+        Err(Error::Terrain(
+            "per-cell latitude requested but the DEM has no CRS and its coordinates are not \
+             longitude/latitude (they look like projected metres, e.g. UTM). Tag the DEM with its \
+             CRS (e.g. EPSG:32719) so latitude can be derived, or use scene-centre latitude \
+             (LatitudeMode::Center)."
+                .into(),
+        ))
+    }
+}
+
 /// Per-cell `(POA Wh, AC Wh)` energy for a single `date`, plus the number of
 /// daylight steps at the scene centre. Terrain is supplied precomputed.
 fn day_energies(
@@ -371,6 +457,13 @@ fn day_energies(
 
     let transform = *dem.transform();
 
+    // For per-cell latitude, decide once how to map DEM coordinates to lat/lon
+    // (and fail fast on an un-interpretable DEM). Center mode needs no CRS.
+    let latlon_source = match cfg.latitude_mode {
+        LatitudeMode::PerCellGeographic => Some(resolve_latlon_source(dem)?),
+        LatitudeMode::Center => None,
+    };
+
     // Per-cell accumulation, parallelised over the flattened grid. Each cell is
     // independent; slope/aspect/horizon are read-only and Sync.
     let energies: Vec<(f64, f64)> = (0..rows * cols)
@@ -395,9 +488,11 @@ fn day_energies(
                     }
                 }
                 LatitudeMode::PerCellGeographic => {
-                    // (x, y) = (lon, lat) from the geographic transform.
-                    let (lon, lat) = transform.pixel_to_geo(c, r);
-                    let loc = Location { latitude: lat, longitude: lon };
+                    // Latitude/longitude derived from the DEM georeferencing
+                    // (geographic direct, or UTM inverted); resolved once above.
+                    let loc = latlon_source
+                        .expect("per-cell source resolved for PerCellGeographic")
+                        .lat_lon(&transform, c, r);
                     for eph in &ephemerides {
                         let sun = solar_position_at(eph, loc);
                         if sun.apparent_elevation <= 0.0 {

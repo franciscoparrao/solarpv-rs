@@ -400,3 +400,89 @@ fn spectral_loss_reduces_yield_at_altitude() {
         "geometric POA should be unchanged by spectral loss"
     );
 }
+
+/// A gently tilted DEM georeferenced as UTM 19S (EPSG:32719), the CRS of the
+/// Chilean north. `elev` is a closure giving elevation from (row, col).
+fn utm_dem_19s(rows: usize, cols: usize, elev: impl Fn(usize, usize) -> f64) -> Raster<f64> {
+    let data: Vec<f64> = (0..rows * cols).map(|i| elev(i / cols, i % cols)).collect();
+    let mut r = Raster::from_vec(data, rows, cols).unwrap();
+    // Near the Atacama point: origin easting 400 km, northing 7400 km, 30 m cells.
+    r.set_transform(GeoTransform::new(400_000.0, 7_400_000.0, CELL, -CELL));
+    r.set_crs(Some(surtgis_core::CRS::from_epsg(32719)));
+    r
+}
+
+/// Regression for the per-cell latitude bug: on a UTM DEM, `PerCellGeographic`
+/// used to read northings (millions of metres) as degrees of latitude and
+/// produced a per-row-striped, physically meaningless map. With the inverse-UTM
+/// fix it must match the scene-centre result on a scene this small (~1 km), and
+/// the values must be plausible, not striped.
+#[test]
+fn per_cell_on_utm_dem_matches_center_and_is_not_striped() {
+    // 40×40 at 30 m ≈ 1.2 km: latitude barely varies, so per-cell ≈ center.
+    let (rows, cols) = (40, 40);
+    // A mild north-facing tilt (elevation rises toward the south / last rows).
+    let dem = utm_dem_19s(rows, cols, |r, _| 100.0 + r as f64 * 2.0);
+    // Scene-centre latitude for EPSG:32719 at E=400600, N=7399400 ≈ -23.51.
+    let center = Location::new(-23.51, -69.98).unwrap();
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+
+    let mut per_cell = GridConfig::new(center, date);
+    per_cell.time_step_minutes = 30;
+    per_cell.latitude_mode = LatitudeMode::PerCellGeographic;
+    let res_pc = pv_potential(&dem, &per_cell).unwrap();
+
+    let mut center_mode = per_cell.clone();
+    center_mode.latitude_mode = LatitudeMode::Center;
+    let res_c = pv_potential(&dem, &center_mode).unwrap();
+
+    let mean = |r: &solarpv_core::grid::GridResult| {
+        let v: Vec<f64> = (0..rows * cols)
+            .map(|i| r.poa_wh.get(i / cols, i % cols).unwrap_or(0.0))
+            .filter(|x| x.is_finite() && *x > 0.0)
+            .collect();
+        v.iter().sum::<f64>() / v.len() as f64
+    };
+    let (m_pc, m_c) = (mean(&res_pc), mean(&res_c));
+
+    // Per-cell must track center within ~2 % over this small scene (the bug gave
+    // tens of percent), and land in a plausible winter POA band, not near zero
+    // or absurdly high.
+    assert!(
+        (m_pc - m_c).abs() / m_c < 0.02,
+        "per-cell mean {m_pc} should match center mean {m_c} on a ~1 km scene"
+    );
+    assert!(m_pc > 2_000.0, "winter POA mean {m_pc} Wh/m² should be plausible, not near zero");
+
+    // Rows must not be striped: variation of the per-row mean should be a small
+    // fraction of the overall mean (the bug drove it to hundreds of Wh/m²).
+    let row_means: Vec<f64> = (0..rows)
+        .map(|r| {
+            let s: f64 = (0..cols).map(|c| res_pc.poa_wh.get(r, c).unwrap_or(0.0)).sum();
+            s / cols as f64
+        })
+        .collect();
+    let rm_mean = row_means.iter().sum::<f64>() / rows as f64;
+    let rm_sd = (row_means.iter().map(|x| (x - rm_mean).powi(2)).sum::<f64>() / rows as f64).sqrt();
+    assert!(rm_sd / rm_mean < 0.02, "row means should be nearly uniform, sd/mean = {}", rm_sd / rm_mean);
+}
+
+/// A projected DEM with no CRS tag must be rejected in per-cell mode, rather
+/// than silently reading UTM metres as degrees.
+#[test]
+fn per_cell_on_untagged_projected_dem_errors() {
+    let (rows, cols) = (10, 10);
+    let mut dem = Raster::from_vec(vec![100.0; rows * cols], rows, cols).unwrap();
+    // UTM-magnitude coordinates but no CRS set.
+    dem.set_transform(GeoTransform::new(400_000.0, 7_400_000.0, CELL, -CELL));
+    let center = Location::new(-23.5, -69.9).unwrap();
+    let date = DateTimeUtc::new(2026, 6, 21, 0, 0, 0).unwrap();
+    let mut cfg = GridConfig::new(center, date);
+    cfg.latitude_mode = LatitudeMode::PerCellGeographic;
+
+    let msg = match pv_potential(&dem, &cfg) {
+        Ok(_) => panic!("expected an error for an untagged projected DEM"),
+        Err(e) => e.to_string(),
+    };
+    assert!(msg.contains("no CRS"), "expected a CRS-missing error, got: {msg}");
+}
