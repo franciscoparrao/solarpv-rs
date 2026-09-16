@@ -156,7 +156,7 @@ fn parse_temp_model(s: &str) -> Result<TempModel, String> {
 #[cfg(feature = "terrain")]
 mod terrain {
     use super::*;
-    use solarpv_core::grid::{pv_potential, GridConfig, LatitudeMode, Mount};
+    use solarpv_core::grid::{pv_potential, GridConfig, LatitudeMode, Mount, ObservedGhi};
     use solarpv_core::pv::PvSystem;
     use solarpv_core::solpos::{DateTimeUtc, Location};
     use solarpv_core::tracking::{DualAxisTracker, SingleAxisTracker};
@@ -198,6 +198,9 @@ mod terrain {
         iam=None,
         spectral=false,
         svf=false,
+        tile=0,
+        ghi_path=None,
+        ghi_unit="kwh",
     ))]
     #[allow(clippy::too_many_arguments)]
     pub fn pv_potential_py(
@@ -227,6 +230,9 @@ mod terrain {
         iam: Option<&str>,
         spectral: bool,
         svf: bool,
+        tile: usize,
+        ghi_path: Option<&str>,
+        ghi_unit: &str,
     ) -> PyResult<PyObject> {
         Python::with_gil(|py| {
             let dem = read_geotiff::<f64, _>(dem_path, None)
@@ -280,6 +286,39 @@ mod terrain {
                 None
             };
             cfg.apply_sky_view_factor = svf;
+            cfg.tile = (tile > 0).then_some(tile);
+
+            // Observed annual mean-daily GHI raster (rescales the clear-sky
+            // model per cell). Aligned to the DEM; kWh/m²/day by default.
+            if let Some(path) = ghi_path {
+                let factor = match ghi_unit {
+                    "kwh" => 1000.0, // kWh/m²/day → Wh/m²/day
+                    "wh" => 1.0,
+                    other => {
+                        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                            "unknown ghi_unit `{other}`; expected `kwh` or `wh`"
+                        )))
+                    }
+                };
+                let mut ghi = read_geotiff::<f64, _>(path, None)
+                    .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+                if ghi.shape() != dem.shape() {
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "GHI raster {:?} is {:?} but the DEM is {:?}; they must align cell-for-cell",
+                        path,
+                        ghi.shape(),
+                        dem.shape()
+                    )));
+                }
+                if factor != 1.0 {
+                    for v in ghi.data_mut().iter_mut() {
+                        if v.is_finite() {
+                            *v *= factor;
+                        }
+                    }
+                }
+                cfg.observed_ghi = Some(ObservedGhi::Annual(ghi));
+            }
 
             let res = pv_potential(&dem, &cfg)
                 .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;

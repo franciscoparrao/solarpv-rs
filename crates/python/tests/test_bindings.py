@@ -100,3 +100,43 @@ def test_pv_potential_mounts_differ(tmp_path):
     # A flat DEM with terrain mount is horizontal; a 23° tilt changes yield.
     c = 4
     assert terrain["specific_yield"][c][c] != tilt["specific_yield"][c][c]
+
+
+def _make_ghi(path, n=9, cell_deg=0.001, lat=-23.0, lon=-69.0, value=6.0):
+    """Uniform annual mean-daily GHI raster (kWh/m²/day), aligned to the DEM."""
+    data = np.full((n, n), value, dtype=np.float64)
+    transform = from_origin(
+        lon - (n / 2) * cell_deg, lat + (n / 2) * cell_deg, cell_deg, cell_deg
+    )
+    with rasterio.open(
+        path, "w", driver="GTiff", height=n, width=n, count=1,
+        dtype=data.dtype, crs="EPSG:4326", transform=transform,
+    ) as dst:
+        dst.write(data, 1)
+
+
+def test_pv_potential_tile_matches_untiled(tmp_path):
+    dem = tmp_path / "flat.tif"
+    _make_flat_dem(dem)
+    base = dict(step=30, mount="tilt", tilt=23.0, svf=True, horizon_radius=3)
+    whole = solarpv.pv_potential(str(dem), -23.0, -69.0, 2026, 6, 21, **base)
+    tiled = solarpv.pv_potential(str(dem), -23.0, -69.0, 2026, 6, 21, tile=4, **base)
+    rows, cols = whole["shape"]
+    for r in range(rows):
+        for c in range(cols):
+            a, b = whole["specific_yield"][r][c], tiled["specific_yield"][r][c]
+            assert abs(a - b) <= 1e-9 * max(abs(a), 1e-9), f"tiled != untiled at {r},{c}"
+
+
+def test_pv_potential_observed_ghi_modulates(tmp_path):
+    dem = tmp_path / "flat.tif"
+    _make_flat_dem(dem)
+    high = tmp_path / "ghi_high.tif"
+    low = tmp_path / "ghi_low.tif"
+    _make_ghi(high, value=7.5)
+    _make_ghi(low, value=5.0)
+    base = dict(step=30, mount="tilt", tilt=23.0)
+    r_hi = solarpv.pv_potential(str(dem), -23.0, -69.0, 2026, 1, 1, ghi_path=str(high), **base)
+    r_lo = solarpv.pv_potential(str(dem), -23.0, -69.0, 2026, 1, 1, ghi_path=str(low), **base)
+    m = r_hi["shape"][0] // 2
+    assert r_hi["specific_yield"][m][m] > r_lo["specific_yield"][m][m] > 0.0
