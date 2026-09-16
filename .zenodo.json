@@ -1,0 +1,15 @@
+{
+  "title": "solarpv-rs: a terrain-aware photovoltaic potential engine in Rust (PVGIS lite)",
+  "description": "solarpv-rs extends topographic solar radiation to photovoltaic energy yield over a digital elevation model. It implements solar geometry (Michalsky and the NREL SPA), diffuse-fraction decomposition (Erbs) and plane-of-array transposition (isotropic, Hay-Davies, Perez), the PVWatts/SAPM PV chain, fixed, tilted, single-axis and dual-axis mounts, incidence-angle and spectral losses, and gridded PV-potential mapping with terrain horizon shading and a topographic sky-view factor. The clear-sky model can be rescaled cell by cell to an observed GHI raster (e.g. the Explorador Solar), and large DEMs are processed in tiles to bound memory. The point chain is validated for numerical parity against pvlib at a point in the Atacama desert (northern Chile). Dual-licensed MIT OR Apache-2.0.",
+  "creators": [
+    {"name": "Parra, Francisco", "affiliation": "Department of Informatics Engineering, Universidad de Santiago de Chile, Santiago, Chile", "orcid": "0009-0006-0435-1854"}
+  ],
+  "keywords": ["solar energy", "photovoltaic", "PVGIS", "solar irradiance", "plane of array", "terrain analysis", "digital elevation model", "sky-view factor", "Rust", "geospatial", "Atacama", "pvlib"],
+  "license": "MIT",
+  "upload_type": "software",
+  "access_right": "open",
+  "language": "eng",
+  "version": "0.4.0",
+  "communities": [],
+  "related_identifiers": []
+}

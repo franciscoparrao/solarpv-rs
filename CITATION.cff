@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+title: "solarpv-rs: a terrain-aware photovoltaic potential engine in Rust (PVGIS lite)"
+message: "If you use this software, please cite it using the metadata below."
+type: software
+authors:
+  - given-names: Francisco
+    family-names: Parra
+    affiliation: "Department of Informatics Engineering, Universidad de Santiago de Chile, Santiago, Chile"
+    orcid: "https://orcid.org/0009-0006-0435-1854"
+version: "0.4.0"
+date-released: "2026-09-16"
+license:
+  - MIT
+  - Apache-2.0
+repository-code: "https://github.com/franciscoparrao/solarpv-rs"
+keywords:
+  - solar energy
+  - photovoltaic
+  - PVGIS
+  - solar irradiance
+  - terrain analysis
+  - digital elevation model
+  - Rust
+  - geospatial
