@@ -8,7 +8,7 @@ authors:
     affiliation: "Department of Informatics Engineering, Universidad de Santiago de Chile, Santiago, Chile"
     orcid: "https://orcid.org/0009-0006-0435-1854"
 version: "0.4.0"
-date-released: "2026-09-16"
+date-released: "2026-09-19"
 license:
   - MIT
   - Apache-2.0
