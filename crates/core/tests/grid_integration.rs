@@ -535,6 +535,74 @@ fn tiled_matches_untiled_on_terrain_with_horizon() {
     );
 }
 
+/// Tiling with an observed GHI must also reproduce the whole-DEM result. The GHI
+/// is aligned to the full DEM, so each tile has to read it at its global
+/// position, not at its tile-local indices. A non-uniform field (row/column
+/// gradient) plus a nodata block in the north-west corner (like the sea on a
+/// coastal DEM) makes any misread visible: with local indices every tile would
+/// read the corner block and come back zero or with the wrong clearness index.
+#[test]
+fn tiled_matches_untiled_with_nonuniform_observed_ghi() {
+    let n = 24;
+    let dem = north_wall_dem(n);
+    let date = DateTimeUtc::new(2026, 1, 1, 0, 0, 0).unwrap();
+    let mut base = config_on(date);
+    base.time_step_minutes = 30;
+    base.horizon.radius = 6;
+    base.apply_sky_view_factor = true;
+
+    let mut vals = vec![0.0; n * n];
+    for r in 0..n {
+        for c in 0..n {
+            vals[r * n + c] = if r < 4 && c < 4 {
+                f64::NAN
+            } else {
+                4000.0 + 100.0 * r as f64 + 50.0 * c as f64
+            };
+        }
+    }
+    base.observed_ghi = Some(solarpv_core::grid::ObservedGhi::Annual(with_transform(
+        Raster::from_vec(vals, n, n).unwrap(),
+    )));
+
+    let untiled = pv_potential_annual(&dem, &base, DaySampling::MonthlyRepresentative).unwrap();
+    let mut tiled_cfg = base.clone();
+    tiled_cfg.tile = Some(8); // 3×3 interior tiles, halo 6
+    let tiled = pv_potential_annual(&dem, &tiled_cfg, DaySampling::MonthlyRepresentative).unwrap();
+
+    for r in 0..n {
+        for c in 0..n {
+            let (u, t) = (
+                untiled.specific_yield.get(r, c).unwrap_or(0.0),
+                tiled.specific_yield.get(r, c).unwrap_or(0.0),
+            );
+            if r < 4 && c < 4 {
+                assert_eq!((u, t), (0.0, 0.0), "nodata cell ({r},{c}) must be zero");
+            } else {
+                assert!(u > 0.0, "covered cell ({r},{c}) must yield something");
+                assert!(
+                    (u - t).abs() / u < 1e-9,
+                    "tiled must match untiled at ({r},{c}): {u} vs {t}"
+                );
+            }
+        }
+    }
+
+    // Single-day path goes through the same tiling.
+    let untiled_d = pv_potential(&dem, &base).unwrap();
+    let tiled_d = pv_potential(&dem, &tiled_cfg).unwrap();
+    for i in 0..n * n {
+        let (u, t) = (
+            untiled_d.specific_yield.get(i / n, i % n).unwrap_or(0.0),
+            tiled_d.specific_yield.get(i / n, i % n).unwrap_or(0.0),
+        );
+        assert!(
+            (u - t).abs() <= 1e-9 * u.abs().max(1e-9),
+            "single-day mismatch at {i}: {u} vs {t}"
+        );
+    }
+}
+
 /// Feeding an observed GHI exactly equal to the model's own clear-sky daily GHI
 /// must leave the result unchanged (clearness index k = 1). This pins the
 /// rescaling to an exact identity at k = 1, using the same public formulas the

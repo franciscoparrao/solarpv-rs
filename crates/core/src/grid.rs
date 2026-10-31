@@ -478,11 +478,17 @@ fn resolve_latlon_source(dem: &Raster<f64>) -> Result<LatLonSource> {
 
 /// Per-cell `(POA Wh, AC Wh)` energy for a single `date`, plus the number of
 /// daylight steps at the scene centre. Terrain is supplied precomputed.
+///
+/// `origin` is the `(row, col)` of `dem`'s top-left cell within the full DEM
+/// that [`GridConfig::observed_ghi`] is aligned to: `(0, 0)` for the whole DEM,
+/// the halo-grown tile corner when tiling. The observed GHI is read at the
+/// global position so every tile samples its own cells, not the corner block.
 fn day_energies(
     dem: &Raster<f64>,
     cfg: &GridConfig,
     terrain: &Terrain,
     date: DateTimeUtc,
+    origin: (usize, usize),
 ) -> Result<(Vec<(f64, f64)>, usize)> {
     let (rows, cols) = dem.shape();
     let slope_rad = &terrain.slope_rad;
@@ -556,7 +562,7 @@ fn day_energies(
 
             // Observed GHI (if configured): a cell with no coverage yields nothing.
             let observed_daily = match observed {
-                Some(o) => match o.daily(month, r, c) {
+                Some(o) => match o.daily(month, origin.0 + r, origin.1 + c) {
                     Some(v) => Some(v),
                     None => return (0.0, 0.0),
                 },
@@ -686,8 +692,10 @@ fn extract_subdem(dem: &Raster<f64>, r0: usize, c0: usize, h: usize, w: usize) -
 /// The DEM is walked in `tile × tile` interior blocks, each grown by a
 /// `horizon.radius` halo (clamped to the DEM) so that interior cells see the
 /// surrounding relief. `per_tile` computes the per-cell `(POA, AC)` energy for a
-/// sub-DEM and its terrain; only interior cells are scattered into the full
-/// output, so the result is identical to the untiled computation.
+/// sub-DEM and its terrain, given the sub-DEM's `(row, col)` origin in the full
+/// DEM (needed to read full-DEM-aligned inputs such as the observed GHI); only
+/// interior cells are scattered into the full output, so the result is
+/// identical to the untiled computation.
 fn tiled_energies<F>(
     dem: &Raster<f64>,
     cfg: &GridConfig,
@@ -695,7 +703,7 @@ fn tiled_energies<F>(
     per_tile: F,
 ) -> Result<(Vec<f64>, Vec<f64>, usize)>
 where
-    F: Fn(&Raster<f64>, &Terrain) -> Result<(Vec<(f64, f64)>, usize)>,
+    F: Fn(&Raster<f64>, &Terrain, (usize, usize)) -> Result<(Vec<(f64, f64)>, usize)>,
 {
     let (rows, cols) = dem.shape();
     // Fail fast on an un-interpretable DEM before doing any tile work.
@@ -722,7 +730,7 @@ where
 
             let sub = extract_subdem(dem, er0, ec0, er1 - er0, ec1 - ec0);
             let terrain = build_terrain(&sub, cfg)?;
-            let (energies, steps) = per_tile(&sub, &terrain)?;
+            let (energies, steps) = per_tile(&sub, &terrain, (er0, ec0))?;
             sun_steps = steps;
 
             // Scatter interior cells (offset by the halo) into the full grid.
@@ -752,12 +760,12 @@ where
 /// [`GridConfig::tile`] to bound memory on large scenes.
 pub fn pv_potential(dem: &Raster<f64>, cfg: &GridConfig) -> Result<GridResult> {
     let (poa_vec, ac_vec, sun_steps) = match cfg.tile {
-        Some(t) => tiled_energies(dem, cfg, t, |sub, terrain| {
-            day_energies(sub, cfg, terrain, cfg.date)
+        Some(t) => tiled_energies(dem, cfg, t, |sub, terrain, origin| {
+            day_energies(sub, cfg, terrain, cfg.date, origin)
         })?,
         None => {
             let terrain = build_terrain(dem, cfg)?;
-            let (energies, sun_steps) = day_energies(dem, cfg, &terrain, cfg.date)?;
+            let (energies, sun_steps) = day_energies(dem, cfg, &terrain, cfg.date, (0, 0))?;
             (
                 energies.iter().map(|e| e.0).collect(),
                 energies.iter().map(|e| e.1).collect(),
@@ -825,11 +833,14 @@ pub fn pv_potential_annual(
     let days = sampled_days(cfg.date.year, sampling)?;
 
     // Sum the sampled days (weighted) for one sub-DEM + terrain.
-    let annual_tile = |sub: &Raster<f64>, terrain: &Terrain| -> Result<(Vec<(f64, f64)>, usize)> {
+    let annual_tile = |sub: &Raster<f64>,
+                       terrain: &Terrain,
+                       origin: (usize, usize)|
+     -> Result<(Vec<(f64, f64)>, usize)> {
         let (sr, sc) = sub.shape();
         let mut acc = vec![(0.0f64, 0.0f64); sr * sc];
         for (date, weight) in &days {
-            let (energies, _) = day_energies(sub, cfg, terrain, *date)?;
+            let (energies, _) = day_energies(sub, cfg, terrain, *date, origin)?;
             for (i, (p, a)) in energies.iter().enumerate() {
                 acc[i].0 += p * weight;
                 acc[i].1 += a * weight;
@@ -843,7 +854,7 @@ pub fn pv_potential_annual(
         None => {
             let (rows, cols) = dem.shape();
             let terrain = build_terrain(dem, cfg)?;
-            let (energies, _) = annual_tile(dem, &terrain)?;
+            let (energies, _) = annual_tile(dem, &terrain, (0, 0))?;
             let mut poa = vec![0.0f64; rows * cols];
             let mut ac = vec![0.0f64; rows * cols];
             for (i, (p, a)) in energies.iter().enumerate() {
