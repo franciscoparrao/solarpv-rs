@@ -204,8 +204,9 @@ struct Cli {
 
     /// Process the DEM in square tiles of this many interior cells per side,
     /// to bound memory on large scenes (the horizon array dominates). Tiles are
-    /// grown by the horizon radius as a halo, so the result is identical to an
-    /// untiled run. 0 (default) computes the whole DEM at once.
+    /// grown by the horizon radius as a halo, so the result matches an untiled
+    /// run up to horizon-sampling ties near tile seams (≲0.1 %). 0 (default)
+    /// computes the whole DEM at once.
     #[arg(long, default_value_t = 0)]
     tile: usize,
 

@@ -123,8 +123,11 @@ pub struct GridConfig {
     /// bounding peak memory (the horizon array is `8 × directions × rows × cols`
     /// bytes — the dominant cost on large scenes). `None` computes the whole DEM
     /// at once. Each tile is grown by a halo of `horizon.radius` cells so that
-    /// interior cells still see the surrounding topography; results are
-    /// identical to the untiled run.
+    /// interior cells still see the surrounding topography. Results match the
+    /// untiled run except for horizon-sampling ties: a ray step that lands
+    /// exactly on a half cell rounds by absolute index, so a few horizon angles
+    /// near tile seams can pick the neighbouring cell (≲0.1 % in specific
+    /// yield on rugged test terrain).
     pub tile: Option<usize>,
     /// Rescale the clear-sky model to an observed mean-daily GHI raster (e.g.
     /// the Explorador Solar), capturing clouds and the coastal *camanchaca* that
@@ -694,8 +697,9 @@ fn extract_subdem(dem: &Raster<f64>, r0: usize, c0: usize, h: usize, w: usize) -
 /// surrounding relief. `per_tile` computes the per-cell `(POA, AC)` energy for a
 /// sub-DEM and its terrain, given the sub-DEM's `(row, col)` origin in the full
 /// DEM (needed to read full-DEM-aligned inputs such as the observed GHI); only
-/// interior cells are scattered into the full output, so the result is
-/// identical to the untiled computation.
+/// interior cells are scattered into the full output. The result matches the
+/// untiled computation up to horizon-sampling ties near tile seams (see
+/// [`GridConfig::tile`]).
 fn tiled_energies<F>(
     dem: &Raster<f64>,
     cfg: &GridConfig,

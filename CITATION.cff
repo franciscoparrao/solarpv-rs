@@ -7,15 +7,15 @@ authors:
     family-names: Parra
     affiliation: "Department of Informatics Engineering, Universidad de Santiago de Chile, Santiago, Chile"
     orcid: "https://orcid.org/0009-0006-0435-1854"
-version: "0.4.0"
-date-released: "2026-09-19"
+version: "0.4.1"
+date-released: "2026-11-03"
 license:
   - MIT
   - Apache-2.0
 identifiers:
   - type: doi
     value: 10.5281/zenodo.22845645
-    description: Archived v0.4.0 release
+    description: Archived v0.4.1 release
 repository-code: "https://github.com/franciscoparrao/solarpv-rs"
 keywords:
   - solar energy
