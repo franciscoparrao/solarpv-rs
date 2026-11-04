@@ -7,6 +7,12 @@ authors:
     family-names: Parra
     affiliation: "Department of Informatics Engineering, Universidad de Santiago de Chile, Santiago, Chile"
     orcid: "https://orcid.org/0009-0006-0435-1854"
+  - given-names: Braulio
+    family-names: Bravo
+    affiliation: "Department of Informatics Engineering, Universidad de Santiago de Chile, Santiago, Chile"
+  - given-names: Alonso
+    family-names: Henríquez
+    affiliation: "Department of Informatics Engineering, Universidad de Santiago de Chile, Santiago, Chile"
 version: "0.4.1"
 date-released: "2026-11-03"
 license:
